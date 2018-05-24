@@ -4,6 +4,7 @@
 /build
 /captures
 .externalNativeBuild
+src/node_modules
 
 *.iml
 .idea
