@@ -1,0 +1,27 @@
+/**
+ * Created by hacketo on 25/05/18.
+ */
+
+
+var KEYS = {
+    PLAY : 1,
+    /*FULLSCREEN : 2,
+     HUD : 3,*/
+    PLAYBACK_BACKWARD600 : 4,
+    PLAYBACK_BACKWARD30 : 5,
+    PLAYBACK_FORWARD30 : 6,
+    PLAYBACK_FORWARD600 : 7,
+    AUDIO_TRACK_NEXT : 8,
+    AUDIO_TRACK_PREV : 9,
+    AUDIO_VOL_UP : 10,
+    AUDIO_VOL_DOWN : 11,
+    SUBTITLE_TOGGLE : 12,
+    SUBTITLE_TRACK_NEXT : 13,
+    SUBTITLE_TRACK_PREV : 14,
+    SUBTITLE_DELAY_DEC : 15,
+    SUBTITLE_DELAY_INC : 16,
+    INFOS : 17,
+    QUIT : 18
+};
+
+module.exports.KEYS = KEYS;
