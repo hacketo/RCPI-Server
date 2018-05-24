@@ -1,0 +1,29 @@
+{
+  "name": "RemoteJS",
+  "version": "0.1.0",
+  "description": "Remote Sys",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "devDependencies": {
+    "ansi-color": "latest",
+    "daemon": "^1.1.0",
+    "ws": "git://github.com/hacketo/ws.git#ba3c1267e6cddf1a580e7b42bc1643da6f5c418a"
+  },
+  "author": {
+    "name": "Théo TANGUY",
+    "email": "th3o.tanguy@gmail.com",
+    "url": "http://d3vx.fr/"
+  },
+  "dependencies": {
+    "body-parser": "^1.18.2",
+    "express": "^4.16.3",
+    "forever-monitor": "^1.7.1",
+    "get-video-duration": "^0.3.0",
+    "node-omxplayer": "^0.6.1",
+    "youtube-dl": "^1.12.2",
+    "text-encoding": "0.6.4"
+  }
+}

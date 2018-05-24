@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>RemoteJS</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="mobile-web-app-capable" content="yes">
+<link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+    <style>
+		
+		html{
+			height:100%;
+			font-family: 'Roboto', sans-serif;
+		}
+		body{
+			height:100%;
+		}
+		#main_container{
+			height: 96%;
+			padding: 9px;
+			box-sizing: border-box;
+		}
+        #container{
+			box-sizing: border-box;
+			height: 100%;
+			display: flex;
+			flex-wrap: wrap;
+			justify-content: space-between;
+			align-content: space-between;
+        }
+		
+		.but{
+			padding: 6px;
+			border: 1px black dotted;
+			margin: 3px;
+			font-size: 20px;
+			background-color: #e3ece5;
+			min-width: 40px;
+			height: 57px;
+		}
+		
+		.but:hover {
+			background-color:#68a54b;
+		}
+		.but:active {
+			position:relative;
+			top:3px;
+		}
+		
+		.but_c{
+			width: 100%;
+			display: flex;
+			flex-wrap: wrap;
+			justify-content: space-between;
+			align-content: space-between;
+			-webkit-touch-callout: none;
+			-webkit-user-select: none;
+			-khtml-user-select: none;
+			-moz-user-select: none;
+			-ms-user-select: none;
+			user-select: none;
+		}
+		
+		#conn_server{
+			height:15px;
+			width:15px;
+			background-color: green;
+		}
+		
+		#conn_server.closed{
+			background-color: red;
+		}
+		
+		
+		
+    </style>
+</head>
+<body>
+
+<div id="main_container">
+	<div id="conn_server"></div>
+    <div id="container">
+
+    </div>
+</div>
+
+<script>
+
+    var divContainer = document.getElementById('container');
+	var conn_server = document.getElementById('conn_server');
+	var filmSelect;
+	
+    var ws = new WebSocket('ws://192.168.0.7:9877');
+	
+	var closed = true;
+	
+    ws.onopen = function(){
+
+		closed = false;
+
+    };
+
+    /**
+     * @param {text: String, key: String} data
+     */
+    ws.onmessage = function(msgEvent){
+	
+		var get_button = function(text, key){
+		    var but = document.createElement('button');
+            but.setAttribute('class', 'but');
+            but.innerHTML = text;
+            but.setAttribute('data-key', key);
+			return but;
+		};
+		
+		var msgdata = JSON.parse(msgEvent.data);
+		
+		var keys, films, i,j, len,len2, opt;
+		
+		if (msgdata.action === 'init'){
+		
+			keys = msgdata.data.keys;		
+			films = msgdata.data.films;		
+			
+			var butFrag = document.createDocumentFragment();
+			
+			var divBut = document.createElement('div');
+			divBut.setAttribute('class', 'but_c');
+			divBut.appendChild(get_button('Reload','reload'));
+			
+			
+			
+			filmSelect = document.createElement('select');
+			for (i = 0, len = films.length ; i < len ; i++){
+				dd = films[i].split('/');
+				opt = document.createElement('option');
+				opt.value = films[i];
+				opt.text = dd[dd.length - 1];
+				filmSelect.appendChild(opt);
+			}
+			divBut.appendChild(filmSelect);
+			
+			divBut.appendChild(get_button('Open','open'));
+			
+			butFrag.appendChild(divBut);
+			for (i = 0, len = keys.length ; i < len ; i++){
+				divBut = document.createElement('div');
+				divBut.setAttribute('class', 'but_c');
+				
+				for (j = 0, len2 = keys[i].length ; j < len2 ; j++){
+					divBut.appendChild(get_button(keys[i][j].text, keys[i][j].key));
+				}
+				butFrag.appendChild(divBut);
+			}
+
+			while (divContainer.firstChild) {
+				divContainer.removeChild(divContainer.firstChild);
+			}
+
+			divContainer.appendChild(butFrag);
+		}
+		else if (msgdata.action === 'reload'){
+			films = msgdata.data;
+			while (filmSelect.firstChild) {
+				filmSelect.removeChild(filmSelect.firstChild);
+			}
+			var dd;
+			for (i = 0, len = films.length ; i < len ; i++){
+				dd = films[i].split('/');
+				opt = document.createElement('option');
+				opt.value = films[i];
+				opt.text = dd[dd.length - 1];
+				filmSelect.appendChild(opt);
+			}
+		}
+    };
+
+    ws.onclose = function(code, reason, clean){
+		closed = true;
+		conn_server.classList.add('closed');
+    };
+
+
+    divContainer.onclick = function(e){
+		if (!closed){
+			if (e.target.classList.contains('but')){
+				var key = e.target.dataset.key;
+				
+				if (typeof key !== 'undefined'){
+					console.log(key);
+					
+					if (+key === +key){
+						key = +key;
+					}
+					
+					var data = {key: key};
+					if (key === 'open'){
+						data.film = filmSelect.options[filmSelect.selectedIndex].value;
+					}
+					
+					ws.send(JSON.stringify(data));
+				}
+			}
+		}
+    };
+
+	/*
+	var mouseDownObj = null;
+	divContainer.onmousedown = function(e){
+		if (e.target.classList.contains('but')){
+			if (mouseDownObj != null){
+				mouseDownObj.classList.remove('hover');
+			}
+			
+			mouseDownObj = e.target;
+			mouseDownObj.classList.add('hover');
+		}
+	};
+	document.body.onmouseup = function(e){
+		if (mouseDownObj != null){
+			mouseDownObj.classList.remove('hover');
+		}
+	}
+	*/
+</script>
+</body>
+</html>
