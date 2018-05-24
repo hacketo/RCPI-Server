@@ -1,7 +1,8 @@
 {
-  "name": "RemoteJS",
+  "name": "RCPI-Server",
   "version": "0.1.0",
   "description": "Remote Sys",
+  "repository": "https://github.com/hacketo/RCPI-Server",
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -13,8 +14,8 @@
     "ws": "git://github.com/hacketo/ws.git#ba3c1267e6cddf1a580e7b42bc1643da6f5c418a"
   },
   "author": {
-    "name": "Théo TANGUY",
-    "email": "th3o.tanguy@gmail.com",
+    "name": "Hacketo",
+    "email": "hacketo@d3vx.fr",
     "url": "http://d3vx.fr/"
   },
   "dependencies": {
