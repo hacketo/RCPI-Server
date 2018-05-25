@@ -24,13 +24,13 @@ The udp packets are constructed with messagepack
 ```
 
 **< CODE >** *number* : defined in the table bellow<br>
-**< OPT_DATA >** *string* : can provide data to the action
+**< OPT_DATA >** *Any=* : can provide data to the action
 
 
 ---
 
 
-KEY | ACTION/CODE | OPT_DATA | Comment
+KEY | CODE | OPT_DATA | Comment
 --- | --- | --- | ---
 PING | 0 | | ask current informations about the player
 OPEN | 1 | uri | Url of the media
@@ -77,7 +77,7 @@ Return ***LIST*** from the server<br>
 ```
 [6, 3, < MEDIA_LIST >]
 ```
-**< MEDIA_LIST >** *Array<String>* : path list of the available medias<br>
+**< MEDIA_LIST >** *Array\<String>* : path list of the available medias<br>
 
 
 ### <a name="ping"></a>PING
