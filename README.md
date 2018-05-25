@@ -23,10 +23,12 @@ The udp packets are constructed with messagepack
 [4, < CODE >, < OPT_DATA > ]
 ```
 
-**< CODE >** *number* : defined in the table bellow
+**< CODE >** *number* : defined in the table bellow<br>
 **< OPT_DATA >** *string* : can provide data to the action
 
+
 ---
+
 
 KEY | ACTION/CODE | OPT_DATA | Comment
 --- | --- | --- | ---
@@ -51,31 +53,34 @@ SUBTITLE_DELAY_INC | 17 | |
 INFOS | 18 | |
 QUIT | 19 | |
 
+
 ---
 
-#### OPEN
 
-The **OPEN** packet will tell omx to load the file specified as OPT_DATA<br>
+### OPEN
+
+
+The ***OPEN*** packet will tell omx to load the file specified as MEDIA_URI<br>
 ```
 [4, 1, < MEDIA_URI >]
 ```
 **< MEDIA_URI >** *string* : uri of the media; supports : file/http protocols, youtube url<br>
 
-#### <a name="reload"></a>RELOAD
+### <a name="reload"></a>RELOAD
 
-The **LIST** packet will ask omx to send the list of the available medias<br>
+The ***LIST*** packet will ask omx to send the list of the available medias<br>
 ```
 [4, 3]
 ```
 
-Return **LIST** from the server<br>
+Return ***LIST*** from the server<br>
 ```
 [6, 3, < MEDIA_LIST >]
 ```
 **< MEDIA_LIST >** *Array<String>* : path list of the available medias<br>
 
 
-#### <a name="ping"></a>PING
+### <a name="ping"></a>PING
 
 The ***PING*** packet will ask omx to send the informations about the current media playing<br>
 ```
