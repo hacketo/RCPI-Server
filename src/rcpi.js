@@ -76,7 +76,7 @@ RCPI.prototype.spawnOk_ = function(film, receiver, duration){
         this.omx_player.newSource(film, 'hdmi', false, -500);
     }
     this.resetFilmCursor();
-    this.sendTo(receiver, 'finfos', this.get_play_packet());
+    this.sendInfos(receiver)
 };
 
 RCPI.prototype.spawn_omxplayer = function(film, receiver){
@@ -98,7 +98,7 @@ RCPI.prototype.send_to_omx = function(key, receiver){
             case KEYS.PLAY:
                 this.playPauseCursor();
                 this.omx_player.play();
-                this.sendTo(receiver, 'finfos', this.get_play_packet());
+                this.sendInfos(receiver)
                 break;
             case KEYS.FULLSCREEN:
                 break;
@@ -108,25 +108,25 @@ RCPI.prototype.send_to_omx = function(key, receiver){
                 this.updateFilmCursor();
                 this.moveCursor(util.sec(-600));
                 this.omx_player.back600();
-                this.sendTo(receiver, 'finfos', this.get_cursor_packet());
+                this.sendCursorInfos(receiver);
                 break;
             case KEYS.PLAYBACK_BACKWARD30:
                 this.updateFilmCursor();
                 this.moveCursor(util.sec(-30));
                 this.omx_player.back30();
-                this.sendTo(receiver, 'finfos', this.get_cursor_packet());
+                this.sendCursorInfos(receiver);
                 break;
             case KEYS.PLAYBACK_FORWARD30:
                 this.updateFilmCursor();
                 this.moveCursor(util.sec(30));
                 this.omx_player.fwd30();
-                this.sendTo(receiver, 'finfos', this.get_cursor_packet());
+                this.sendCursorInfos(receiver);
                 break;
             case KEYS.PLAYBACK_FORWARD600:
                 this.updateFilmCursor();
                 this.moveCursor(util.sec(600));
                 this.omx_player.fwd600();
-                this.sendTo(receiver, 'finfos', this.get_cursor_packet());
+                this.sendCursorInfos(receiver);
                 break;
             case KEYS.AUDIO_TRACK_NEXT:
                 this.omx_player.nextAudio();
@@ -169,23 +169,28 @@ RCPI.prototype.send_to_omx = function(key, receiver){
 };
 
 RCPI.prototype.get_play_packet = function(){
-    return {
-        action  : this.isFilmPlaying ? "play" : "stop" ,
-        duration: this.currentFilmDuration_ ,
-        cursor  : this.currentFilmCursor_
-    };
+    return [
+        this.currentFilmCursor_,
+        this.isFilmPlaying,
+        this.currentFilmDuration_
+    ];
 };
 RCPI.prototype.get_cursor_packet = function(){
-    return {
-        cursor  : this.currentFilmCursor_
-    };
+    return [
+        this.currentFilmCursor_
+    ];
+};
+
+RCPI.prototype.sendInfos = function(receiver){
+    this.sendTo(receiver, KEYS.FINFOS, this.get_play_packet());
+};
+RCPI.prototype.sendCursorInfos = function(receiver){
+    this.sendTo(receiver, KEYS.FINFOS, this.get_cursor_packet());
 };
 
 RCPI.prototype.sendTo = function(receiver, action, data){
     if (typeof receiver === "string"){
-        this.udpServer.send(action, data, receiver);
-
-
+        this.udpServer.send(receiver, action, data);
     }
     else{
         if (typeof receiver !== 'undefined' && this.wsServer !== null) {
