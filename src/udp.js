@@ -36,7 +36,7 @@ UDPServer.prototype.init = function(rcpi){
         var key = m[1];
 
         if ( key === KEYS.PING){
-            rcpi.updateFilmCursor();
+            rcpi.updateMediaCursor();
             _s.send(rinfo.address, KEYS.FINFOS, rcpi.get_play_packet());
         }
         else if (key === KEYS.LIST){

@@ -35,7 +35,7 @@ KEY | ACTION/CODE | OPT_DATA | Comment
 PING | 0 | | ask current informations about the player
 OPEN | 1 | uri | Url of the media
 PLAY | 2 | | 
-LIST | 3 | media_list | list of available medias [@see #RELOAD](#reload)
+LIST | 3 | media_list | list of available medias [@see #LIST](#list)
 FINFOS | 4 | player_infos | the current informations of the player [@see #PING](#ping)
 PLAYBACK_BACKWARD600 | 5 | |
 PLAYBACK_BACKWARD30 | 6 | | 
@@ -66,7 +66,7 @@ The ***OPEN*** packet will tell omx to load the file specified as MEDIA_URI<br>
 ```
 **< MEDIA_URI >** *string* : uri of the media; supports : file/http protocols, youtube url<br>
 
-### <a name="reload"></a>RELOAD
+### <a name="list"></a>LIST
 
 The ***LIST*** packet will ask omx to send the list of the available medias<br>
 ```

@@ -9,8 +9,8 @@ var fs = require('fs'),
     UDPServer = require('./udp').UDPServer,
     WSServer = require('./websockets').WSServer,
     KEYS = require('./keys').KEYS,
-    //Omx = require('./mock.js');
-    Omx = require('node-omxplayer');
+    Omx = require('./mock.js');
+    //Omx = require('node-omxplayer');
 
 
 function RCPI(config){
@@ -27,10 +27,10 @@ function RCPI(config){
     this.udpServer = null;
     this.wsServer = null;
 
-    this.currentFilmDuration_ = -1;
-    this.currentFilmCursor_ = 0;
+    this.currentMediaDuration_ = -1;
+    this.currentMediaCursor_ = 0;
     this.lastCheck = 0;
-    this.isFilmPlaying = false;
+    this.isMediaPlaying = false;
 
     this.use_ws = config.use_ws;
     this.udp_port = config.udp_port;
@@ -55,40 +55,40 @@ RCPI.prototype.get_available_media = function(){
     return ["a","b"];
 };
 
-RCPI.prototype.spawn_ = function(film, receiver){
-    getvideoduration(film).then((function(self){
+RCPI.prototype.spawn_ = function(media, receiver){
+    getvideoduration(media).then((function(self){
         return function(duration){
-            self.spawnOk_(film, receiver, duration)
+            self.spawnOk_(media, receiver, duration)
         }
     })(this), function(error){
         console.log(error);
     });
 };
 
-RCPI.prototype.spawnOk_ = function(film, receiver, duration){
-    console.log('lancement '+film+' durée '+duration);
+RCPI.prototype.spawnOk_ = function(media, receiver, duration){
+    console.log('lancement '+media+' durée '+duration);
 
-    this.currentFilmDuration_ = duration * 1000;
+    this.currentMediaDuration_ = duration * 1000;
     if (this.omx_player == null){
-        this.omx_player = Omx(film, 'hdmi', false, -500);
+        this.omx_player = Omx(media, 'hdmi', false, -500);
     }
     else{
-        this.omx_player.newSource(film, 'hdmi', false, -500);
+        this.omx_player.newSource(media, 'hdmi', false, -500);
     }
-    this.resetFilmCursor();
+    this.resetMediaCursor();
     this.sendInfos(receiver)
 };
 
-RCPI.prototype.spawn_omxplayer = function(film, receiver){
+RCPI.prototype.spawn_omxplayer = function(media, receiver){
     var _s = this;
-    if (film.startsWith('https://youtu') || film.startsWith('http://youtu')){
-        youtubedl.getInfo(film, [], function(err, info) {
+    if (media.startsWith('https://youtu') || media.startsWith('http://youtu')){
+        youtubedl.getInfo(media, [], function(err, info) {
             if (err) throw err;
             _s.spawn_(info.url,receiver);
         });
     }
     else{
-        this.spawn_(film,receiver);
+        this.spawn_(media,receiver);
     }
 };
 
@@ -98,32 +98,28 @@ RCPI.prototype.send_to_omx = function(key, receiver){
             case KEYS.PLAY:
                 this.playPauseCursor();
                 this.omx_player.play();
-                this.sendInfos(receiver)
-                break;
-            case KEYS.FULLSCREEN:
-                break;
-            case KEYS.HUD:
+                this.sendInfos(receiver);
                 break;
             case KEYS.PLAYBACK_BACKWARD600:
-                this.updateFilmCursor();
+                this.updateMediaCursor();
                 this.moveCursor(util.sec(-600));
                 this.omx_player.back600();
                 this.sendCursorInfos(receiver);
                 break;
             case KEYS.PLAYBACK_BACKWARD30:
-                this.updateFilmCursor();
+                this.updateMediaCursor();
                 this.moveCursor(util.sec(-30));
                 this.omx_player.back30();
                 this.sendCursorInfos(receiver);
                 break;
             case KEYS.PLAYBACK_FORWARD30:
-                this.updateFilmCursor();
+                this.updateMediaCursor();
                 this.moveCursor(util.sec(30));
                 this.omx_player.fwd30();
                 this.sendCursorInfos(receiver);
                 break;
             case KEYS.PLAYBACK_FORWARD600:
-                this.updateFilmCursor();
+                this.updateMediaCursor();
                 this.moveCursor(util.sec(600));
                 this.omx_player.fwd600();
                 this.sendCursorInfos(receiver);
@@ -170,14 +166,14 @@ RCPI.prototype.send_to_omx = function(key, receiver){
 
 RCPI.prototype.get_play_packet = function(){
     return [
-        this.currentFilmCursor_,
-        this.isFilmPlaying,
-        this.currentFilmDuration_
+        this.currentMediaCursor_,
+        this.isMediaPlaying,
+        this.currentMediaDuration_
     ];
 };
 RCPI.prototype.get_cursor_packet = function(){
     return [
-        this.currentFilmCursor_
+        this.currentMediaCursor_
     ];
 };
 
@@ -199,34 +195,32 @@ RCPI.prototype.sendTo = function(receiver, action, data){
     }
 };
 
-
-
-RCPI.prototype.resetFilmCursor = function(){
-    this.currentFilmCursor_ = 0;
-    this.isFilmPlaying = true;
+RCPI.prototype.resetMediaCursor = function(){
+    this.currentMediaCursor_ = 0;
+    this.isMediaPlaying = true;
     this.lastCheck = +new Date();
 };
 RCPI.prototype.playPauseCursor = function(){
-    this.updateFilmCursor();
-    this.isFilmPlaying = !this.isFilmPlaying;
+    this.updateMediaCursor();
+    this.isMediaPlaying = !this.isMediaPlaying;
 
 };
-RCPI.prototype.updateFilmCursor = function(){
-    if (this.isFilmPlaying) {
-        moveCursor(+new Date() - this.lastCheck);
+RCPI.prototype.updateMediaCursor = function(){
+    if (this.isMediaPlaying) {
+        this.moveCursor(+new Date() - this.lastCheck);
     }
     this.lastCheck = +new Date();
 };
 
 RCPI.prototype.moveCursor = function(d){
-    if (this.currentFilmCursor_ + d > this.currentFilmDuration_){
-        this.currentFilmCursor_ = this.currentFilmDuration_
+    if (this.currentMediaCursor_ + d > this.currentMediaDuration_){
+        this.currentMediaCursor_ = this.currentMediaDuration_
     }
-    else if (this.currentFilmCursor_ + d < 0){
-        this.currentFilmCursor_ = 0
+    else if (this.currentMediaCursor_ + d < 0){
+        this.currentMediaCursor_ = 0
     }
     else {
-        this.currentFilmCursor_ = this.currentFilmCursor_ + d;
+        this.currentMediaCursor_ = this.currentMediaCursor_ + d;
     }
 };
 

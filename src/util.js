@@ -18,7 +18,7 @@ function walk(dir, sub){
                 }
             }
             else {
-                if (isFilm(file)){
+                if (isMedia(file)){
                     results.push(file);
                 }
             }
@@ -34,7 +34,7 @@ var EXT_LIST = ['avi', 'mkv', 'mp4', 'm4v'];
  * @param file
  * @returns {boolean}
  */
-function isFilm(file){
+function isMedia(file){
     var ext = file.substring(file.lastIndexOf('.'));
 
     if (ext.length > 0){
