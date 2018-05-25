@@ -9,8 +9,8 @@ var fs = require('fs'),
     UDPServer = require('./udp').UDPServer,
     WSServer = require('./websockets').WSServer,
     KEYS = require('./keys').KEYS,
-    Omx = require('./mock.js');
-    //Omx = require('node-omxplayer');
+    //Omx = require('./mock.js');
+    Omx = require('node-omxplayer');
 
 
 function RCPI(config){
