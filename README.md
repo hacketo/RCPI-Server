@@ -6,6 +6,19 @@ There is an [Android Client](https://github.com/hacketo/RCPI-Android)
 
 More details later on this little project.
 
+## Dependencies
+
+This project require [*ffmpeg/ffprobe*](https://git.ffmpeg.org/ffmpeg.git) to be installed on the raspberry pi.
+
+
+## Getting Started
+
+```
+npm install
+
+npm start
+```
+
 
 ## Protocol
 
@@ -60,7 +73,7 @@ QUIT | 19 | |
 ### OPEN
 
 
-The ***OPEN*** packet will tell omx to load the file specified as MEDIA_URI<br>
+The ***OPEN*** packet will tell RCPI to load the file specified as MEDIA_URI<br>
 ```
 [4, 1, < MEDIA_URI >]
 ```
@@ -68,7 +81,7 @@ The ***OPEN*** packet will tell omx to load the file specified as MEDIA_URI<br>
 
 ### <a name="list"></a>LIST
 
-The ***LIST*** packet will ask omx to send the list of the available medias<br>
+The ***LIST*** packet will ask RCPI to send the list of the available medias<br>
 ```
 [4, 3]
 ```
@@ -82,7 +95,7 @@ Return ***LIST*** from the server<br>
 
 ### <a name="ping"></a>PING
 
-The ***PING*** packet will ask omx to send the informations about the current media playing<br>
+The ***PING*** packet will ask RCPI to send the informations about the current media playing<br>
 ```
 [4, 0]
 ```
