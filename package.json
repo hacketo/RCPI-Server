@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "description": "Remote Sys",
   "repository": "https://github.com/hacketo/RCPI-Server",
-  "main": "server.js",
+  "main": "src/server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node src/server.js"
   },
   "devDependencies": {
     "ansi-color": "latest",

@@ -185,6 +185,7 @@ RCPI.prototype.sendTo = function(receiver, action, data){
     if (typeof receiver === "string"){
         this.udpServer.send(action, data, receiver);
 
+
     }
     else{
         if (typeof receiver !== 'undefined' && this.wsServer !== null) {
