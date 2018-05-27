@@ -27,8 +27,24 @@ function RCPI(config){
     this.udpServer = null;
     this.wsServer = null;
 
+    /**
+     * Time in milliseconds
+     * @type {number}
+     * @private
+     */
     this.currentMediaDuration_ = -1;
+
+    /**
+     * Time in milliseconds
+     * @type {number}
+     * @private
+     */
     this.currentMediaCursor_ = 0;
+    /**
+     * Time in milliseconds
+     * @type {number}
+     * @private
+     */
     this.lastCheck = 0;
     this.isMediaPlaying = false;
 
@@ -38,14 +54,12 @@ function RCPI(config){
 }
 
 RCPI.prototype.init = function(){
-
     this.udpServer = new UDPServer(this.udp_port);
     this.udpServer.init(this);
     if (this.use_ws){
         this.wsServer = new WSServer(this.ws_port);
         this.wsServer.init(this);
     }
-
 };
 
 RCPI.prototype.get_available_media = function(){
@@ -65,10 +79,17 @@ RCPI.prototype.spawn_ = function(media, receiver){
     });
 };
 
+/**
+ *
+ * @param {string} media
+ * @param receiver
+ * @param {int|float} duration
+ * @private
+ */
 RCPI.prototype.spawnOk_ = function(media, receiver, duration){
     console.log('lancement '+media+' durée '+duration);
 
-    this.currentMediaDuration_ = duration * 1000;
+    this.currentMediaDuration_ = Math.round(duration * 1000);
     if (this.omx_player == null){
         this.omx_player = Omx(media, 'hdmi', false, -500);
     }
