@@ -8,8 +8,9 @@ More details later on this little project.
 
 ## Dependencies
 
-This project require [*ffmpeg/ffprobe*](https://git.ffmpeg.org/ffmpeg.git) to be installed on the raspberry pi.
-
+This project require these programs to be installed on the raspberry pi : 
+* [*ffmpeg/ffprobe*](https://github.com/FFmpeg/FFmpeg) 
+* [*omxplayer*](https://github.com/popcornmix/omxplayer) Available on Raspbian repos (`apt-get install omxplayer`)
 
 ## Getting Started
 

@@ -36,10 +36,12 @@ UDPServer.prototype.init = function(rcpi){
         var key = m[1];
 
         if ( key === KEYS.PING){
+            console.log('UDPServer got: '+KEY_STR[key]+' from '+rinfo.address+':'+rinfo.port);
             rcpi.updateMediaCursor();
             _s.send(rinfo.address, KEYS.FINFOS, rcpi.get_play_packet());
         }
         else if (key === KEYS.LIST){
+            console.log('UDPServer got: '+KEY_STR[key]+' from '+rinfo.address+':'+rinfo.port);
             _s.send(rinfo.address, KEYS.LIST, rcpi.get_available_media());
         }
         else if (key === KEYS.OPEN){
@@ -47,15 +49,17 @@ UDPServer.prototype.init = function(rcpi){
                 console.log('no path specified');
                 return;
             }
+            console.log('UDPServer got: '+KEY_STR[key]+':'+m[2]+' from '+rinfo.address+':'+rinfo.port);
             rcpi.spawn_omxplayer(m[2], rinfo.address);
         }
         else{
             if (+key === +key) {
+                console.log('UDPServer got: '+KEY_STR[key]+' from '+rinfo.address+':'+rinfo.port);
                 rcpi.send_to_omx(+key, rinfo.address);
             }
         }
 
-        console.log('UDPServer got: '+KEY_STR[key]+' from '+rinfo.address+':'+rinfo.port);
+
     });
 
     this.server.on('listening', function(){
