@@ -9,8 +9,19 @@ var fs = require('fs'),
     UDPServer = require('./udp').UDPServer,
     WSServer = require('./websockets').WSServer,
     KEYS = require('./keys').KEYS,
-    //Omx = require('./mock.js');
-    Omx = require('node-omxplayer');
+    Omx = null;
+
+var exec = require('child_process').exec;
+
+exec('command -v omxplayer', function(err, stdout) {
+    if (err || stdout.length === 0) {
+        Omx = require('./mock.js');
+        console.log('/!\\ MOCK : OMX NOT INSTALLED /!\\');
+    }
+    else{
+        Omx = require('node-omxplayer');
+    }
+});
 
 
 function RCPI(config){
@@ -102,12 +113,12 @@ RCPI.prototype.spawn_omxplayer = function(media, receiver){
  */
 RCPI.prototype.spawn_ = function(media, receiver, duration){
     if (typeof duration != 'undefined'){
-        self.spawnOk_(media, receiver, duration);
+        this.spawnOk_(media, receiver, duration);
     }
 
-    getvideoduration(media).then((function(self){
+    getvideoduration(media).then((function(s_){
         return function(d){
-            self.spawnOk_(media, receiver, d);
+            s_.spawnOk_(media, receiver, d);
         }
     })(this), function(error){
         console.log(error);
@@ -134,6 +145,7 @@ RCPI.prototype.spawnOk_ = function(media, receiver, duration){
     this.resetMediaCursor();
     this.sendInfos(receiver)
 };
+
 
 RCPI.prototype.send_to_omx = function(key, receiver){
     if (this.omx_player != null && this.omx_player.running){
