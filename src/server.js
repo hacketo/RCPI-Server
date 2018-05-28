@@ -10,7 +10,7 @@
         use_ws: false,
         udp_port: 9878,
         ws_port: 9877,
-		mediaDirs : ["/media/pi", "/home/pi/Video"]
+		mediaDirs : ["/media/pi", "/home/pi/Videos"]
     };
 
     var rcpi = new RCPI(CFG);
