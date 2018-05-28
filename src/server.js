@@ -9,7 +9,8 @@
     var CFG = {
         use_ws: false,
         udp_port: 9878,
-        ws_port: 9877
+        ws_port: 9877,
+		mediaDirs : ["/media/pi", "/home/pi/Video"]
     };
 
     var rcpi = new RCPI(CFG);

@@ -18,12 +18,13 @@ function RCPI(config){
     config = Object.assign({
         use_ws : false,
         udp_port : 9878,
-        ws_port : 9877
+        ws_port : 9877,
+        mediaDirs : ["/media/pi", "/home/pi/Video"]
     }, config);
 
-    this.mediaDir = "/media/pi";
-    this.omx_player = null;
+    this.mediaDirs = config.mediaDirs;
 
+    this.omx_player = null;
     this.udpServer = null;
     this.wsServer = null;
 
@@ -63,16 +64,50 @@ RCPI.prototype.init = function(){
 };
 
 RCPI.prototype.get_available_media = function(){
-    if (fs.existsSync(this.mediaDir)){
-        return util.walk(this.mediaDir);
+    var l = [];
+    this.mediaDirs.forEach(function(i){
+        if (fs.existsSync(i)){
+            l = l.concat(util.walk(i));
+        }
+    });
+    if (l.length > 0){
+        return l;
     }
-    return ["a","b"];
+    return ["/a","/b"];
 };
 
-RCPI.prototype.spawn_ = function(media, receiver){
+RCPI.prototype.spawn_omxplayer = function(media, receiver){
+    var _s = this;
+    if (media.startsWith('/')){
+        _s.spawn_(media, receiver);
+    }
+    else {
+        youtubedl.getInfo(media, [], function (err, info) {
+            if (err) {
+                _s.spawn_(media, receiver);
+            }
+            else {
+                _s.spawn_(info.url, receiver, info._duration_raw);
+            }
+        });
+    }
+};
+
+/**
+ *
+ * @param media
+ * @param receiver
+ * @param {number=} duration
+ * @private
+ */
+RCPI.prototype.spawn_ = function(media, receiver, duration){
+    if (typeof duration != 'undefined'){
+        self.spawnOk_(media, receiver, duration);
+    }
+
     getvideoduration(media).then((function(self){
-        return function(duration){
-            self.spawnOk_(media, receiver, duration)
+        return function(d){
+            self.spawnOk_(media, receiver, d);
         }
     })(this), function(error){
         console.log(error);
@@ -98,19 +133,6 @@ RCPI.prototype.spawnOk_ = function(media, receiver, duration){
     }
     this.resetMediaCursor();
     this.sendInfos(receiver)
-};
-
-RCPI.prototype.spawn_omxplayer = function(media, receiver){
-    var _s = this;
-    if (media.startsWith('https://youtu') || media.startsWith('http://youtu')){
-        youtubedl.getInfo(media, [], function(err, info) {
-            if (err) throw err;
-            _s.spawn_(info.url,receiver);
-        });
-    }
-    else{
-        this.spawn_(media,receiver);
-    }
 };
 
 RCPI.prototype.send_to_omx = function(key, receiver){
