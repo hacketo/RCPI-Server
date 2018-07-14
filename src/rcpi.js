@@ -70,6 +70,8 @@ function RCPI(config){
     this.asked_close = false;
     this.mList = [];
     this.mediaEnded = false;
+
+    this.get_available_media();
 }
 
 RCPI.prototype.init = function(){
