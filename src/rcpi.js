@@ -39,6 +39,9 @@ function RCPI(config){
     this.udpServer = null;
     this.wsServer = null;
 
+    this.mediaPath = null;
+    this.volume = -500;
+
     /**
      * Time in milliseconds
      * @type {number}
@@ -137,11 +140,20 @@ RCPI.prototype.spawnOk_ = function(media, receiver, duration){
 
     this.currentMediaDuration_ = Math.round(duration * 1000);
     if (this.omx_player == null){
-        this.omx_player = Omx(media, 'hdmi', false, -500);
+        this.omx_player = Omx(media, 'hdmi', false, this.volume);
+
+        this.omx_player.on('error', function(msg){
+           console.log("error", msg);
+        });
+
+        this.omx_player.on('close', function(){
+            console.log("closed");
+        });
     }
     else{
-        this.omx_player.newSource(media, 'hdmi', false, -500);
+        this.omx_player.newSource(media, 'hdmi', false, this.volume);
     }
+    this.mediaPath = media;
     this.resetMediaCursor();
     this.sendInfos(receiver)
 };
@@ -186,9 +198,11 @@ RCPI.prototype.send_to_omx = function(key, receiver){
                 this.omx_player.prevAudio();
                 break;
             case KEYS.AUDIO_VOL_UP:
+                this.volume += 100;
                 this.omx_player.volUp();
                 break;
             case KEYS.AUDIO_VOL_DOWN:
+                this.volume -= 100;
                 this.omx_player.volDown();
                 break;
             case KEYS.SUBTITLE_TOGGLE:
