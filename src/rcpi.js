@@ -154,7 +154,7 @@ RCPI.prototype.spawnOk_ = function(media, receiver, duration){
         this.omx_player.on('close', code => {
             console.log("closed", code);
 
-            if (!this.asked_close && this.mediaEnded){
+            if (!this.asked_close){
                 var i = this.mList.indexOf(this.mediaPath);
                 if (i > -1){
                     if (getFilmName(this.mList[i+1]).startsWith(getFilmName(this.mediaPath).substr(0,4))){
