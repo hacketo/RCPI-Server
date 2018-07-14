@@ -25,6 +25,7 @@
     "get-video-duration": "^0.3.0",
     "msgpack": "^1.0.2",
     "node-omxplayer": "^0.6.1",
-    "youtube-dl": "^1.12.2"
+    "youtube-dl": "^1.12.2",
+    "omxplayer": "git://github.com/hacketo/omxplayer.git#867cce14d3072eae1c8c63f110c814102c2ad1e8"
   }
 }

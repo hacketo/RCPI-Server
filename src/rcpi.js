@@ -19,7 +19,7 @@ exec('command -v omxplayer', function(err, stdout) {
         console.log('/!\\ MOCK : OMX NOT INSTALLED /!\\');
     }
     else{
-        Omx = require('node-omxplayer');
+        Omx = require('omxplayer');
     }
 });
 
@@ -38,6 +38,9 @@ function RCPI(config){
     this.omx_player = null;
     this.udpServer = null;
     this.wsServer = null;
+
+    this.mediaPath = null;
+    this.volume = -500;
 
     /**
      * Time in milliseconds
@@ -137,47 +140,78 @@ RCPI.prototype.spawnOk_ = function(media, receiver, duration){
 
     this.currentMediaDuration_ = Math.round(duration * 1000);
     if (this.omx_player == null){
-        this.omx_player = Omx(media, 'hdmi', false, -500);
+        this.omx_player = Omx();
+        this.omx_player.running = false;
+        this.omx_player.on('close', function(exitCode){
+            console.log('player closed with exitCode '+exitCode);
+
+            if (1){
+
+            }
+        });
+        this.omx_player.on('error', function(error){
+            console.log('player return error: '+error);
+        });
     }
-    else{
-        this.omx_player.newSource(media, 'hdmi', false, -500);
-    }
-    this.resetMediaCursor();
-    this.sendInfos(receiver)
+
+    this.omx_player.open(media, {adev: 'hdmi', pos: 0, volume:this.volume}, function(err){
+        if (err){
+
+        }
+        else {
+            this.mediaPath = media;
+            this.omx_player.running = true;
+            this.resetMediaCursor();
+            this.sendInfos(receiver);
+        }
+    });
+
+
 };
 
 
 RCPI.prototype.send_to_omx = function(key, receiver){
+
     if (this.omx_player != null && this.omx_player.running){
         switch(key){
             case KEYS.PLAY:
+
                 this.playPauseCursor();
-                this.omx_player.play();
-                this.sendInfos(receiver);
+
+                this.omx_player.play(function(){
+                    this.sendInfos(receiver);
+                });
+
                 break;
             case KEYS.PLAYBACK_BACKWARD600:
                 this.updateMediaCursor();
                 this.moveCursor(util.sec(-600));
-                this.omx_player.back600();
-                this.sendCursorInfos(receiver);
+
+                this.omx_player.seek(-600, function(err, v){
+                    this.sendCursorInfos(receiver);
+                });
+
                 break;
             case KEYS.PLAYBACK_BACKWARD30:
                 this.updateMediaCursor();
                 this.moveCursor(util.sec(-30));
-                this.omx_player.back30();
-                this.sendCursorInfos(receiver);
+                this.omx_player.seek(-30, function(err, v){
+                    this.sendCursorInfos(receiver);
+                });
                 break;
             case KEYS.PLAYBACK_FORWARD30:
                 this.updateMediaCursor();
                 this.moveCursor(util.sec(30));
-                this.omx_player.fwd30();
-                this.sendCursorInfos(receiver);
+                this.omx_player.seek(30, function(err, v){
+                    this.sendCursorInfos(receiver);
+                });
                 break;
             case KEYS.PLAYBACK_FORWARD600:
                 this.updateMediaCursor();
                 this.moveCursor(util.sec(600));
-                this.omx_player.fwd600();
-                this.sendCursorInfos(receiver);
+                this.omx_player.seek(600, function(err, v){
+                    this.sendCursorInfos(receiver);
+                });
                 break;
             case KEYS.AUDIO_TRACK_NEXT:
                 this.omx_player.nextAudio();
@@ -187,9 +221,16 @@ RCPI.prototype.send_to_omx = function(key, receiver){
                 break;
             case KEYS.AUDIO_VOL_UP:
                 this.omx_player.volUp();
+                this.volume += 100;
                 break;
             case KEYS.AUDIO_VOL_DOWN:
                 this.omx_player.volDown();
+                this.volume -= 100;
+                break;
+            case KEYS.AUDIO_VOL_OFF:
+                this.omx_player.mute(function(){
+
+                });
                 break;
             case KEYS.SUBTITLE_TOGGLE:
                 this.omx_player.subtitles();
@@ -223,7 +264,8 @@ RCPI.prototype.get_play_packet = function(){
     return [
         this.currentMediaCursor_,
         this.isMediaPlaying,
-        this.currentMediaDuration_
+        this.currentMediaDuration_,
+        this.mediaPath
     ];
 };
 RCPI.prototype.get_cursor_packet = function(){
