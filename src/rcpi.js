@@ -140,7 +140,7 @@ RCPI.prototype.spawnOk_ = function(media, receiver, duration){
 
     this.currentMediaDuration_ = Math.round(duration * 1000);
     if (this.omx_player == null){
-        this.omx_player = Omx();
+        this.omx_player = new Omx();
         this.omx_player.running = false;
         this.omx_player.on('close', function(exitCode){
             console.log('player closed with exitCode '+exitCode);
