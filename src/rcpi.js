@@ -154,7 +154,7 @@ RCPI.prototype.spawnOk_ = function(media, receiver, duration){
         });
     }
 
-    this.omx_player.open(media, {adev: 'hdmi', pos: 0, volume:this.volume}, function(err){
+    this.omx_player.open(media, {adev: 'hdmi', pos: 0, volume:this.volume}, err => {
         if (err){
 
         }
@@ -202,14 +202,14 @@ RCPI.prototype.send_to_omx = function(key, receiver){
             case KEYS.PLAYBACK_FORWARD30:
                 this.updateMediaCursor();
                 this.moveCursor(util.sec(30));
-                this.omx_player.seek(30, function(err, v){
+                this.omx_player.seek(30, (err, v) => {
                     this.sendCursorInfos(receiver);
                 });
                 break;
             case KEYS.PLAYBACK_FORWARD600:
                 this.updateMediaCursor();
                 this.moveCursor(util.sec(600));
-                this.omx_player.seek(600, function(err, v){
+                this.omx_player.seek(600, (err, v) => {
                     this.sendCursorInfos(receiver);
                 });
                 break;
@@ -268,7 +268,7 @@ RCPI.prototype.get_play_packet = function(){
         this.mediaPath
     ];
 };
-RCPI.prototype.get_cursor_packet = function(){
+RCPI.prototype.get_cursor_packet = () => {
     return [
         this.currentMediaCursor_
     ];
