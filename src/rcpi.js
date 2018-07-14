@@ -66,6 +66,10 @@ function RCPI(config){
     this.use_ws = config.use_ws;
     this.udp_port = config.udp_port;
     this.ws_port = config.ws_port;
+
+    this.asked_close = false;
+    this.mList = [];
+    this.mediaEnded = false;
 }
 
 RCPI.prototype.init = function(){
@@ -85,6 +89,7 @@ RCPI.prototype.get_available_media = function(){
         }
     });
     if (l.length > 0){
+        this.mList = l;
         return l;
     }
     return ["/a","/b"];
@@ -142,12 +147,21 @@ RCPI.prototype.spawnOk_ = function(media, receiver, duration){
     if (this.omx_player == null){
         this.omx_player = Omx(media, 'hdmi', false, this.volume);
 
-        this.omx_player.on('error', function(msg){
+        this.omx_player.on('error', msg => {
            console.log("error", msg);
         });
 
-        this.omx_player.on('close', function(){
-            console.log("closed");
+        this.omx_player.on('close', code => {
+            console.log("closed", code);
+
+            if (!this.asked_close && this.mediaEnded){
+                var i = this.mList.indexOf(this.mediaPath);
+                if (i > -1){
+                    if (getFilmName(this.mList[i+1]).startsWith(getFilmName(this.mediaPath).substr(0,4))){
+                        this.spawn_omxplayer(this.mList[i+1], receiver);
+                    }
+                }
+            }
         });
     }
     else{
@@ -221,6 +235,7 @@ RCPI.prototype.send_to_omx = function(key, receiver){
                 this.omx_player.incSubDelay();
                 break;
             case KEYS.QUIT:
+                this.asked_close = true;
                 this.omx_player.quit();
                 break;
             case KEYS.INFOS:
@@ -283,10 +298,11 @@ RCPI.prototype.updateMediaCursor = function(){
 
 RCPI.prototype.moveCursor = function(d){
     if (this.currentMediaCursor_ + d > this.currentMediaDuration_){
-        this.currentMediaCursor_ = this.currentMediaDuration_
+        this.currentMediaCursor_ = this.currentMediaDuration_;
+        this.mediaEnded = true;
     }
     else if (this.currentMediaCursor_ + d < 0){
-        this.currentMediaCursor_ = 0
+        this.currentMediaCursor_ = 0;
     }
     else {
         this.currentMediaCursor_ = this.currentMediaCursor_ + d;
@@ -309,6 +325,11 @@ RCPI.prototype.clean_exit = function(){
         });
     }
 };
+
+function getFilmName(path){
+    var a = path.split("/");
+    return a[a.length -1];
+}
 
 module.exports.RCPI = RCPI;
 module.exports.KEYS = KEYS;
