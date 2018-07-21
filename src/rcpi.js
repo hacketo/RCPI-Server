@@ -164,10 +164,8 @@ RCPI.prototype.spawn_ = function(media, duration){
         return;
     }
 
-    getvideoduration(media).then((s_) => {
-        return (d) => {
-            this.spawnOk_(media, d);
-        }
+    getvideoduration(media).then((d) => {
+    	this.spawnOk_(media, d);
     }, function(error){
         console.log(error);
     });
