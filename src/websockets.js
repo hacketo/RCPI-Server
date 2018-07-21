@@ -3,18 +3,33 @@
  */
 
 
-var WebSocketServer = require('ws').Server,
+const WebSocketServer = require('ws').Server,
     http = require('http'),
     KEYS = require('./keys').KEYS,
-    util = require('./util');
+    util = require('./util'),
+    Client = require('./client').Client,
+    nutil = require('util');
 
-function WSServer(port){
-    this.port = port;
+/**
+ *
+ * @param {Clients} clients
+ * @param {number} port
+ *
+ * @constructor
+ */
+function WSServer(clients, port){
+	this.port = port;
+	this.clients = clients;
 }
-
 
 WSServer.prototype.processRequest = function(req, res){
 
+};
+
+WSServer.prototype.get_client_provider = function(){
+    return rinfo => {
+        return new WSClient(rinfo, rinfo.url);
+    };
 };
 
 
@@ -31,33 +46,40 @@ WSServer.prototype.init = function(rcpi){
         verifyClient: function(){return true;}
     });
 
-    this.server.on('connection', function(ws) {
-        //on_new_connection
 
-        var data = {
-            keys : remote,
-            films : rcpi.get_available_media()
-        };
+    this.server.on('connection',/** @param {WebSocket} ws*/ ws => {
+
+        let client = this.clients.handle_client(this, ws);
+
         console.log('new client');
-        ws.send(util.computePacket('init', data));
+
+	    client.send('init', {
+		    keys : remote,
+		    films : rcpi.get_available_media()
+	    });
+
 
         ws.on('message', function(msg) {
-            var data = JSON.parse(msg);
+            const data = JSON.parse(msg);
             console.log(data);
+
+            client.ping();
+
             if (data.key === 'open'){
                 if (typeof data.film === 'string' ){
-                    rcpi.spawn_omxplayer(data.film, ws);
+                    rcpi.spawn_omxplayer(data.film);
                 }
             }
             else if (data.key === 'reload'){
-                ws.send(util.computePacket('reload', rcpi.get_available_media()));
+	            client.send('reload', rcpi.get_available_media());
             }
             else{
-                rcpi.send_to_omx(data.key, ws);
+                rcpi.send_to_omx(data.key);
             }
         });
         ws.once('close', function(code, message) {
             console.log('client closed '+code+' : '+message);
+            client.close();
         });
     });
 
@@ -89,8 +111,16 @@ WSServer.prototype.init = function(rcpi){
     }).listen(port);
 };
 
+/**
+ *
+ * @param {function()} cb
+ */
 WSServer.prototype.close = function(cb){
     this.server.close(cb);
+};
+
+WSServer.prototype.idFromRInfo = function(rinfo){
+	return ""+rinfo.url;
 };
 
 var remote = [
@@ -121,6 +151,41 @@ var remote = [
         {text:"Quitter", key:KEYS.QUIT}
     ]
 ];
+
+
+
+
+/**
+ *
+ * @param {WebSocket} ws
+ * @param {string} address
+ * @constructor
+ * @extends ./Client
+ */
+function WSClient(ws, address){
+	Client.call(this);
+	this.address = address;
+	this.id = this.get_id();
+	this.ws = ws;
+}
+nutil.inherits(WSClient, Client);
+
+/**
+ *
+ * @param {string} action
+ * @param {string|Array|Object} data
+ * @override
+ */
+WSClient.prototype.send = function(action, data){
+	this.ws.send(util.computePacket(action, data));
+};
+/**
+ * @override
+ * @returns {string}
+ */
+WSClient.prototype.get_id = function(){
+	return ""+this.address;
+};
 
 module.exports.WSServer = WSServer;
 

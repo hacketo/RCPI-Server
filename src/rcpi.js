@@ -9,6 +9,7 @@ var fs = require('fs'),
     UDPServer = require('./udp').UDPServer,
     WSServer = require('./websockets').WSServer,
     KEYS = require('./keys').KEYS,
+    Clients = require('./clients').Clients,
     Omx = null;
 
 var exec = require('child_process').exec;
@@ -23,7 +24,11 @@ exec('command -v omxplayer', function(err, stdout) {
     }
 });
 
-
+/**
+ *
+ * @param config
+ * @constructor
+ */
 function RCPI(config){
 
     config = Object.assign({
@@ -39,7 +44,7 @@ function RCPI(config){
     this.udpServer = null;
     this.wsServer = null;
 
-    this.mediaPath = null;
+    this.mediaPath = "";
     this.volume = -500;
 
     /**
@@ -60,29 +65,54 @@ function RCPI(config){
      * @type {number}
      * @private
      */
-    this.lastCheck = 0;
+    this.lastCheck_ = 0;
     this.isMediaPlaying = false;
 
     this.use_ws = config.use_ws;
     this.udp_port = config.udp_port;
     this.ws_port = config.ws_port;
 
-    this.asked_close = false;
-    this.mList = [];
+	/**
+	 * true if a client asked the omx player to close
+	 * @type {boolean}
+	 */
+	this.asked_close = false;
+
+	/**
+	 * Liste of media availables
+	 * @type {Array<string>}
+	 */
+	this.mList = [];
     this.mediaEnded = false;
 
-    this.get_available_media();
+	/**
+	 *
+	 * @type {Clients}
+	 */
+	this.clients = null;
 }
 
+/**
+ * Init and starts sockets listeners
+ */
 RCPI.prototype.init = function(){
-    this.udpServer = new UDPServer(this.udp_port);
+
+	this.clients = new Clients();
+
+    this.udpServer = new UDPServer(this.clients, this.udp_port);
     this.udpServer.init(this);
     if (this.use_ws){
-        this.wsServer = new WSServer(this.ws_port);
+        this.wsServer = new WSServer(this.clients, this.ws_port);
         this.wsServer.init(this);
     }
+
+    this.get_available_media();
 };
 
+/**
+ * Browse this.mediaDirs to get a list of media
+ * @returns {*}
+ */
 RCPI.prototype.get_available_media = function(){
     var l = [];
     this.mediaDirs.forEach(function(i){
@@ -94,21 +124,25 @@ RCPI.prototype.get_available_media = function(){
         this.mList = l;
         return l;
     }
-    return ["/a","/b"];
+    return RCPI.MOCK_MEDIALIST;
 };
+RCPI.MOCK_MEDIALIST = ["/a","/b"];
 
-RCPI.prototype.spawn_omxplayer = function(media, receiver){
-    var _s = this;
+/**
+ *
+ * @param {string} media
+ */
+RCPI.prototype.spawn_omxplayer = function(media){
     if (media.startsWith('/')){
-        _s.spawn_(media, receiver);
+        this.spawn_(media);
     }
     else {
-        youtubedl.getInfo(media, [], function (err, info) {
+        youtubedl.getInfo(media, [], (err, info) => {
             if (err) {
-                _s.spawn_(media, receiver);
+                console.log(err);
             }
             else {
-                _s.spawn_(info.url, receiver, info._duration_raw);
+	            this.spawn_(info.url, info._duration_raw);
             }
         });
     }
@@ -116,21 +150,25 @@ RCPI.prototype.spawn_omxplayer = function(media, receiver){
 
 /**
  *
- * @param media
- * @param receiver
+ * @param {string} media
  * @param {number=} duration
  * @private
  */
-RCPI.prototype.spawn_ = function(media, receiver, duration){
-    if (typeof duration != 'undefined'){
-        this.spawnOk_(media, receiver, duration);
+RCPI.prototype.spawn_ = function(media, duration){
+    if (RCPI.MOCK_MEDIALIST.indexOf(media) > -1){
+        duration = 10000;
     }
 
-    getvideoduration(media).then((function(s_){
-        return function(d){
-            s_.spawnOk_(media, receiver, d);
+    if (typeof duration !== 'undefined'){
+        this.spawnOk_(media, duration);
+        return;
+    }
+
+    getvideoduration(media).then((s_) => {
+        return (d) => {
+            this.spawnOk_(media, d);
         }
-    })(this), function(error){
+    }, function(error){
         console.log(error);
     });
 };
@@ -138,14 +176,14 @@ RCPI.prototype.spawn_ = function(media, receiver, duration){
 /**
  *
  * @param {string} media
- * @param receiver
  * @param {int|float} duration
  * @private
  */
-RCPI.prototype.spawnOk_ = function(media, receiver, duration){
+RCPI.prototype.spawnOk_ = function(media, duration){
     console.log('lancement '+media+' durée '+duration);
 
     this.currentMediaDuration_ = Math.round(duration * 1000);
+
     if (this.omx_player == null){
         this.omx_player = Omx(media, 'hdmi', false, this.volume);
 
@@ -160,7 +198,7 @@ RCPI.prototype.spawnOk_ = function(media, receiver, duration){
                 var i = this.mList.indexOf(this.mediaPath);
                 if (i > -1){
                     if (getFilmName(this.mList[i+1]).startsWith(getFilmName(this.mediaPath).substr(0,4))){
-                        this.spawn_omxplayer(this.mList[i+1], receiver);
+                        this.spawn_omxplayer(this.mList[i+1]);
                     }
                 }
             }
@@ -171,41 +209,41 @@ RCPI.prototype.spawnOk_ = function(media, receiver, duration){
     }
     this.mediaPath = media;
     this.resetMediaCursor();
-    this.sendInfos(receiver)
+    this.sendInfos();
 };
 
 
-RCPI.prototype.send_to_omx = function(key, receiver){
+RCPI.prototype.send_to_omx = function(key){
     if (this.omx_player != null && this.omx_player.running){
         switch(key){
             case KEYS.PLAY:
                 this.playPauseCursor();
                 this.omx_player.play();
-                this.sendInfos(receiver);
+                this.sendInfos();
                 break;
             case KEYS.PLAYBACK_BACKWARD600:
                 this.updateMediaCursor();
                 this.moveCursor(util.sec(-600));
                 this.omx_player.back600();
-                this.sendCursorInfos(receiver);
+                this.sendCursorInfos();
                 break;
             case KEYS.PLAYBACK_BACKWARD30:
                 this.updateMediaCursor();
                 this.moveCursor(util.sec(-30));
                 this.omx_player.back30();
-                this.sendCursorInfos(receiver);
+                this.sendCursorInfos();
                 break;
             case KEYS.PLAYBACK_FORWARD30:
                 this.updateMediaCursor();
                 this.moveCursor(util.sec(30));
                 this.omx_player.fwd30();
-                this.sendCursorInfos(receiver);
+                this.sendCursorInfos();
                 break;
             case KEYS.PLAYBACK_FORWARD600:
                 this.updateMediaCursor();
                 this.moveCursor(util.sec(600));
                 this.omx_player.fwd600();
-                this.sendCursorInfos(receiver);
+                this.sendCursorInfos();
                 break;
             case KEYS.AUDIO_TRACK_NEXT:
                 this.omx_player.nextAudio();
@@ -254,7 +292,8 @@ RCPI.prototype.get_play_packet = function(){
     return [
         this.currentMediaCursor_,
         this.isMediaPlaying,
-        this.currentMediaDuration_
+        this.currentMediaDuration_,
+	    this.mediaPath
     ];
 };
 RCPI.prototype.get_cursor_packet = function(){
@@ -263,28 +302,21 @@ RCPI.prototype.get_cursor_packet = function(){
     ];
 };
 
-RCPI.prototype.sendInfos = function(receiver){
-    this.sendTo(receiver, KEYS.FINFOS, this.get_play_packet());
+RCPI.prototype.sendInfos = function(){
+    this.broadcast(KEYS.FINFOS, this.get_play_packet());
 };
-RCPI.prototype.sendCursorInfos = function(receiver){
-    this.sendTo(receiver, KEYS.FINFOS, this.get_cursor_packet());
+RCPI.prototype.sendCursorInfos = function(){
+    this.broadcast(KEYS.FINFOS, this.get_cursor_packet());
 };
 
-RCPI.prototype.sendTo = function(receiver, action, data){
-    if (typeof receiver === "string"){
-        this.udpServer.send(receiver, action, data);
-    }
-    else{
-        if (typeof receiver !== 'undefined' && this.wsServer !== null) {
-            receiver.send(util.computePacket(action, data));
-        }
-    }
+RCPI.prototype.broadcast = function(action, data){
+	this.clients.broadcast(action, data);
 };
 
 RCPI.prototype.resetMediaCursor = function(){
     this.currentMediaCursor_ = 0;
     this.isMediaPlaying = true;
-    this.lastCheck = +new Date();
+    this.lastCheck_ = +new Date();
 };
 RCPI.prototype.playPauseCursor = function(){
     this.updateMediaCursor();
@@ -293,9 +325,9 @@ RCPI.prototype.playPauseCursor = function(){
 };
 RCPI.prototype.updateMediaCursor = function(){
     if (this.isMediaPlaying) {
-        this.moveCursor(+new Date() - this.lastCheck);
+        this.moveCursor(+new Date() - this.lastCheck_);
     }
-    this.lastCheck = +new Date();
+    this.lastCheck_ = +new Date();
 };
 
 RCPI.prototype.moveCursor = function(d){
