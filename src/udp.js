@@ -156,7 +156,7 @@ UDPClient.prototype.send = function(action, data){
  * @returns {string}
  */
 UDPClient.prototype.get_id = function(){
-	return "$"+this.address+":"+this.port;
+	return "$"+this.address;
 };
 
 
