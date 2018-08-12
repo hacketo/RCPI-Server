@@ -121,7 +121,7 @@ UDPServer.prototype.close = function(cb){
 };
 
 UDPServer.prototype.idFromRInfo = function(rinfo){
-	return "$"+rinfo.address+":"+rinfo.port;
+	return "$"+rinfo.address;
 };
 
 /**

@@ -5,9 +5,9 @@
  * @class
  * @name Client
  */
-function Client(){
-	this.lastTimePing = +new Date;
+function Client(clients){
 	this.closed = false;
+	this.close_timeout = null;
 }
 
 /**
@@ -17,9 +17,6 @@ function Client(){
  */
 Client.prototype.send = function(action, data){};
 
-Client.prototype.ping = function(){
-	this.lastTimePing = +new Date;
-};
 Client.prototype.close = function(){
 	this.closed = +new Date;
 };
@@ -31,6 +28,8 @@ Client.prototype.is_closed = function(){
 /**
  * @returns {string}
  */
-Client.prototype.get_id = function(){};
+Client.prototype.get_id = function(){
+
+};
 
 module.exports.Client = Client;

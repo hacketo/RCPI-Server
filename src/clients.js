@@ -14,6 +14,8 @@ function Clients(){
      */
     this.list = new Map();
 
+    this.timeout_duration = 600000;
+
 }
 
 /**
@@ -28,6 +30,8 @@ Clients.prototype.handle_client = function(server, rinfo){
 
     if (this.list.has(cKey)){
         client = this.list.get(cKey);
+        client.closed = false;
+        client.ping();
     }
     else{
 	    client = server.get_client_provider()(rinfo);
@@ -52,6 +56,20 @@ Clients.prototype.add_client_ = function(cKey, client){
     this.list.set(cKey, client);
     return true;
 };
+/**
+ *
+ * @param {string} cKey
+ * @param {Client} client
+ * @private
+ * @return {boolean} true if client was added to the list
+ */
+Clients.prototype.close_client_ = function(cKey){
+    if (this.list.has(cKey)){
+        this.list.get(cKey).closed = true;
+        return true;
+    }
+    return false;
+};
 
 /**
  *
@@ -64,6 +82,24 @@ Clients.prototype.broadcast = function(action, data){
         client.send(action, data);
      }
   });
+};
+
+Clients.prototype.update_clients_timeout = function(timeout){
+    this.timeout_duration = timeout + 600000;
+    for (var i = 0; i < this.clients.length; i++){
+        if (!this.clients[i].closed){
+            this.update_client_timeout(this.clients[i]);
+        }
+    }
+};
+
+Clients.prototype.update_client_timeout = function(client){
+    if (client.close_timeout !== null){
+        clearTimeout(client.close_timeout);
+    }
+    client.close_timeout = setTimeout(() => {
+        this.close_client_(client);
+    }, this.timeout_duration);
 };
 
 module.exports.Clients = Clients;

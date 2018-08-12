@@ -187,6 +187,7 @@ RCPI.prototype.spawnOk_ = function(media, duration){
 
         this.omx_player.on('error', msg => {
            console.log("error", msg);
+            this.clients.timeout_duration = 240000;
         });
 
         this.omx_player.on('close', code => {
@@ -194,7 +195,7 @@ RCPI.prototype.spawnOk_ = function(media, duration){
 
             if (!this.asked_close){
                 var i = this.mList.indexOf(this.mediaPath);
-                if (i > -1){
+                if (i > -1 && this.mList[i+1]){
                     if (getFilmName(this.mList[i+1]).startsWith(getFilmName(this.mediaPath).substr(0,4))){
                         this.spawn_omxplayer(this.mList[i+1]);
                     }
@@ -205,6 +206,9 @@ RCPI.prototype.spawnOk_ = function(media, duration){
     else{
         this.omx_player.newSource(media, 'hdmi', false, this.volume);
     }
+
+    this.clients.update_clients_timeout(this.currentMediaDuration_);
+
     this.mediaPath = media;
     this.resetMediaCursor();
     this.sendInfos();
@@ -275,6 +279,7 @@ RCPI.prototype.send_to_omx = function(key){
             case KEYS.QUIT:
                 this.asked_close = true;
                 this.omx_player.quit();
+                this.isMediaPlaying = false;
                 break;
             case KEYS.INFOS:
                 this.omx_player.info();
@@ -302,9 +307,11 @@ RCPI.prototype.get_cursor_packet = function(){
 
 RCPI.prototype.sendInfos = function(){
     this.broadcast(KEYS.FINFOS, this.get_play_packet());
+    this.clients.update_clients_timeout(this.isMediaPlaying ? (this.currentMediaDuration_ - this.currentMediaCursor_) : 0);
 };
 RCPI.prototype.sendCursorInfos = function(){
     this.broadcast(KEYS.FINFOS, this.get_cursor_packet());
+    this.clients.update_clients_timeout(this.isMediaPlaying ? (this.currentMediaDuration_ - this.currentMediaCursor_) : 0);
 };
 
 RCPI.prototype.broadcast = function(action, data){
