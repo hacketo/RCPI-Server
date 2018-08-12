@@ -86,11 +86,11 @@ Clients.prototype.broadcast = function(action, data){
 
 Clients.prototype.update_clients_timeout = function(timeout){
     this.timeout_duration = timeout + 600000;
-    for (var i = 0; i < this.clients.length; i++){
-        if (!this.clients[i].closed){
-            this.update_client_timeout(this.clients[i]);
+    this.list.forEach((client, cKey) => {
+        if (!client.closed){
+            this.update_client_timeout(client);
         }
-    }
+    });
 };
 
 Clients.prototype.update_client_timeout = function(client){
