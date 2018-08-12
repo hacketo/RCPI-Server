@@ -133,6 +133,7 @@ RCPI.MOCK_MEDIALIST = ["/a","/b"];
  * @param {string} media
  */
 RCPI.prototype.spawn_omxplayer = function(media){
+    this.asked_close = false;
     if (media.startsWith('/')){
         this.spawn_(media);
     }
@@ -196,7 +197,7 @@ RCPI.prototype.spawnOk_ = function(media, duration){
             if (!this.asked_close){
                 var i = this.mList.indexOf(this.mediaPath);
                 if (i > -1 && this.mList[i+1]){
-                    if (getFilmName(this.mList[i+1]).startsWith(getFilmName(this.mediaPath).substr(0,4))){
+                    if (getFilmName(this.mList[i+1]).startsWith(getFilmName(this.mediaPath).substr(0,8))){
                         this.spawn_omxplayer(this.mList[i+1]);
                     }
                 }
