@@ -31,7 +31,7 @@ Clients.prototype.handle_client = function(server, rinfo){
     if (this.list.has(cKey)){
         client = this.list.get(cKey);
         client.closed = false;
-        client.ping();
+        this.update_client_timeout(client);
     }
     else{
 	    client = server.get_client_provider()(rinfo);
@@ -94,6 +94,7 @@ Clients.prototype.update_clients_timeout = function(timeout){
 };
 
 Clients.prototype.update_client_timeout = function(client){
+
     if (client.close_timeout !== null){
         clearTimeout(client.close_timeout);
     }
