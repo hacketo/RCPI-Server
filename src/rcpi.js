@@ -36,11 +36,13 @@ function RCPI(config){
         udp_port : 9878,
         ws_port : 9877,
         mediaDirs : ["/media/pi", "/home/pi/Video"],
-        downloadDir: "/home/pi/Video"
+        downloadDir: "/home/pi/Video",
+        tempDir: __dirname+"/temp",
     }, config);
 
     this.mediaDirs = config.mediaDirs;
     this.downloadDir = config.downloadDir;
+    this.tempDir = config.tempDir;
 
     this.omx_player = null;
     this.udpServer = null;
@@ -184,12 +186,42 @@ RCPI.prototype.spawn_omxplayer = function(media){
         this.spawn_(media);
     }
     else {
-        youtubedl.getInfo(media, [], (err, info) => {
+        //TODO-tt empty for regular quality
+        let args = ["-f bestvideo"];
+
+        youtubedl.getInfo(media, args, (err, info) => {
             if (err) {
                 util.error(err);
             }
             else {
-	            this.spawn_(info.url, info._duration_raw);
+
+                let url = info.url;
+                let duration = info._duration_raw;
+
+                let options = {
+                    // Write automatic subtitle file (youtube only)
+                    auto: false,
+                    // Downloads all the available subtitles.
+                    all: false,
+                    // Subtitle format. YouTube generated subtitles
+                    // are available ttml or vtt.
+                    format: 'srt',
+                    // Languages of subtitles to download, separated by commas.
+                    lang: 'fr',
+                    // The directory to save the downloaded files in.
+                    cwd: this.tempDir,
+                };
+
+                youtubedl.getSubs(url, options, (err, files) => {
+                    if (err) util.error(err);
+
+                    console.log('subtitle files downloaded:', files);
+                    this.spawn_(url, duration, files[0]);
+                });
+
+
+
+
             }
         });
     }
@@ -224,14 +256,14 @@ RCPI.prototype.spawn_ = function(media, duration){
  * @param {int|float} duration
  * @private
  */
-RCPI.prototype.spawnOk_ = function(media, duration){
+RCPI.prototype.spawnOk_ = function(media, duration, subtitles){
     util.log('lancement '+media+' durée '+duration);
 
     this.currentMediaDuration_ = Math.round(duration * 1000);
 
     // If omx was never initialized create new instance and setup listeners
     if (this.omx_player == null){
-        this.omx_player = Omx(media, 'hdmi', false, this.volume);
+        this.omx_player = Omx(media, 'hdmi', false, this.volume, subtitles);
 
         this.omx_player.on('error', msg => {
             util.error("error", msg);
