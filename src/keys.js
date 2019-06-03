@@ -23,7 +23,9 @@ var KEYS = {
     SUBTITLE_DELAY_DEC : 16,
     SUBTITLE_DELAY_INC : 17,
     INFOS : 18,
-    QUIT : 19
+    QUIT : 19,
+
+    DEBUG : 22
 };
 
 var KEY_STR = (function(){

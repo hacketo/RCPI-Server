@@ -13,7 +13,7 @@ function walk(dir, sub){
             file = dir + '/' + file;
             var stat = fs.statSync(file);
             if (stat && stat.isDirectory()) {
-                if (sub < 2) {
+                if (sub < 3) {
                     results = results.concat(walk(file, sub+1));
                 }
             }
@@ -52,6 +52,20 @@ function sec(ms_){
     return ms_ * 1000;
 }
 
+function log(msg){
+    console.log(msg);
+}
+function error(msg){
+    console.error(msg);
+}
+function debug(msg){
+    console.debug(msg);
+}
+
 module.exports.walk = walk;
 module.exports.computePacket = computePacket;
 module.exports.sec = sec;
+
+module.exports.log = log;
+module.exports.error = error;
+module.exports.debug = debug;

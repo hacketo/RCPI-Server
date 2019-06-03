@@ -2,6 +2,8 @@
  * Created by hacketo on 17/07/17.
  */
 
+ const util = require('./util');
+
 (function() {
 
     var RCPI = require('./rcpi').RCPI;
@@ -18,7 +20,7 @@
 
 	function exitHandler(options, err) {
 		if (err) {
-			console.log(err.stack);
+			util.error(err.stack);
 		}
 		if (options.exit) {
 		    rcpi.clean_exit();

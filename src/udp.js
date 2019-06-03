@@ -35,9 +35,9 @@ UDPServer.prototype.init = function(rcpi){
     this.server = dgram.createSocket('udp4');
 
     this.server.on('error', err => {
-        console.log('UDPServer error:\n'+err.stack);
+        util.error('UDPServer error:\n'+err.stack);
         this.close(function(errCode){
-        	console.log('closed server code : '+errCode);
+        	util.error('closed server code : '+errCode);
         });
     });
 
@@ -47,46 +47,40 @@ UDPServer.prototype.init = function(rcpi){
         const m = msgpack.unpack(msg);
         // Check msg structure
         if (!m.length || m.length <= 0){ return; }
+
+        // Message starts with 4
         if (m[0] != 4){ return; }
 
         const key = m[1];
 
         if (typeof KEY_STR[key] === 'string'){
-	        console.log('UDPServer got: '+KEY_STR[key]+' from '+rinfo.address+':'+rinfo.port);
+	        util.log('UDPServer got: '+KEY_STR[key]+' from '+rinfo.address+':'+rinfo.port);
         }
 
 	    // chekc KEY
         switch(key){
-	        case KEYS.PING:
-	            rcpi.updateMediaCursor();
-		        client.send(KEYS.FINFOS, rcpi.get_play_packet());
+            case KEYS.PING:
+                rcpi.onPING(client);
 	            break;
-
-	        case KEYS.LIST:
-		        client.send(KEYS.LIST, rcpi.get_available_media());
+            case KEYS.LIST:
+                rcpi.onLIST(client);
 	            break;
-
 	        case KEYS.OPEN:
-		        const path = m[2];
-	            if (typeof path === 'undefined'){
-	                console.log('no path specified');
-	                return;
-	            }
-	            console.log('path : '+path);
-	            rcpi.spawn_omxplayer(path);
-				break;
-
+                rcpi.onOPEN(client, m[2]);
+                break;
+	        case KEYS.DEBUG:
+                rcpi.onDEBUG(client, m[2]);
+                break;
 			default:
 	            if (+key === +key) {
-	                rcpi.send_to_omx(+key);
+	                rcpi.send_to_omx(client, +key);
 	            }
         }
-
     });
 
     this.server.on('listening', () => {
         const address = this.server.address();
-        console.log('UDP Server listening on '+address.address+':'+address.port);
+        util.log('UDP Server listening on '+address.address+':'+address.port);
     });
 
     this.server.bind(this.port);
@@ -106,7 +100,7 @@ UDPServer.prototype.send = function(address, action, data){
                 b.push(data);
             }
             const p = msgpack.pack(b);
-            console.log("Sending UDP : ",action, JSON.stringify(data), this.port, address);
+            util.log("Sending UDP : ",action, JSON.stringify(data), this.port, address);
             this.server.send(p, 0, p.length, this.port, address);
         }
     }
@@ -136,7 +130,7 @@ function UDPClient(udpServer, rinfo){
 
 	this.address = rinfo.address;
 	this.port = rinfo.port;
-	this.id = this.get_id();
+	this.id = UDPServer.prototype.idFromRInfo(rinfo);
 	this.udpServer = udpServer;
 }
 
@@ -156,7 +150,7 @@ UDPClient.prototype.send = function(action, data){
  * @returns {string}
  */
 UDPClient.prototype.get_id = function(){
-	return "$"+this.address;
+	return this.id;
 };
 
 

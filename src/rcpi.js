@@ -17,7 +17,7 @@ var exec = require('child_process').exec;
 exec('command -v omxplayer', function(err, stdout) {
     if (err || stdout.length === 0) {
         Omx = require('./mock.js');
-        console.log('/!\\ MOCK : OMX NOT INSTALLED /!\\');
+        util.log('/!\\ MOCK : OMX NOT INSTALLED /!\\');
     }
     else{
         Omx = require('node-omxplayer');
@@ -35,10 +35,12 @@ function RCPI(config){
         use_ws : false,
         udp_port : 9878,
         ws_port : 9877,
-        mediaDirs : ["/media/pi", "/home/pi/Video"]
+        mediaDirs : ["/media/pi", "/home/pi/Video"],
+        downloadDir: "/home/pi/Video"
     }, config);
 
     this.mediaDirs = config.mediaDirs;
+    this.downloadDir = config.downloadDir;
 
     this.omx_player = null;
     this.udpServer = null;
@@ -109,6 +111,50 @@ RCPI.prototype.init = function(){
     this.get_available_media();
 };
 
+RCPI.prototype.onPING = function(client){
+    this.updateMediaCursor();
+    client.send(KEYS.FINFOS, this.get_play_packet());
+}
+
+
+RCPI.prototype.onLIST = function(client){
+    client.send(KEYS.LIST, this.get_available_media());
+}
+
+
+RCPI.prototype.onOPEN = function(client, path){
+    if (!path){
+        util.log('no path specified');
+        return;
+    }
+    this.spawn_omxplayer(path);
+}
+
+RCPI.prototype.onDEBUG = function(client, cmd){
+    if (!cmd){
+        util.log('no cmd specified');
+        return;
+    }
+    
+    if (cmd === 'sub'){
+        if(this.sub_debug(client)){
+
+        }
+        else{
+            
+        }
+    }
+    
+    if (cmd === 'unsub'){
+        if(this.unsub_debug(client)){
+            
+        }
+        else{
+
+        }
+    }
+}
+
 /**
  * Browse this.mediaDirs to get a list of media
  * @returns {*}
@@ -140,7 +186,7 @@ RCPI.prototype.spawn_omxplayer = function(media){
     else {
         youtubedl.getInfo(media, [], (err, info) => {
             if (err) {
-                console.log(err);
+                util.error(err);
             }
             else {
 	            this.spawn_(info.url, info._duration_raw);
@@ -168,7 +214,7 @@ RCPI.prototype.spawn_ = function(media, duration){
     getvideoduration(media).then((d) => {
     	this.spawnOk_(media, d);
     }, function(error){
-        console.log(error);
+        util.error(media, error);
     });
 };
 
@@ -179,20 +225,21 @@ RCPI.prototype.spawn_ = function(media, duration){
  * @private
  */
 RCPI.prototype.spawnOk_ = function(media, duration){
-    console.log('lancement '+media+' durée '+duration);
+    util.log('lancement '+media+' durée '+duration);
 
     this.currentMediaDuration_ = Math.round(duration * 1000);
 
+    // If omx was never initialized create new instance and setup listeners
     if (this.omx_player == null){
         this.omx_player = Omx(media, 'hdmi', false, this.volume);
 
         this.omx_player.on('error', msg => {
-           console.log("error", msg);
+            util.error("error", msg);
             this.clients.timeout_duration = 240000;
         });
 
         this.omx_player.on('close', code => {
-            console.log("closed", code);
+            util.log("closed", code);
 
             if (!this.asked_close){
                 var i = this.mList.indexOf(this.mediaPath);
@@ -208,7 +255,9 @@ RCPI.prototype.spawnOk_ = function(media, duration){
         this.omx_player.newSource(media, 'hdmi', false, this.volume);
     }
 
-    this.clients.update_clients_timeout(this.currentMediaDuration_);
+    // New media should be spawning now, so we might want to update the timeout duration for the connected clients
+    // It should be duration of the media + 5 min or 10 min ?
+    this.clients.update_timeout(this.currentMediaDuration_);
 
     this.mediaPath = media;
     this.resetMediaCursor();
@@ -216,37 +265,37 @@ RCPI.prototype.spawnOk_ = function(media, duration){
 };
 
 
-RCPI.prototype.send_to_omx = function(key){
+RCPI.prototype.send_to_omx = function(client, key){
     if (this.omx_player != null && this.omx_player.running){
         switch(key){
             case KEYS.PLAY:
                 this.playPauseCursor();
                 this.omx_player.play();
-                this.sendInfos();
+                this.sendInfos(client);
                 break;
             case KEYS.PLAYBACK_BACKWARD600:
                 this.updateMediaCursor();
                 this.moveCursor(util.sec(-600));
                 this.omx_player.back600();
-                this.sendCursorInfos();
+                this.sendCursorInfos(client);
                 break;
             case KEYS.PLAYBACK_BACKWARD30:
                 this.updateMediaCursor();
                 this.moveCursor(util.sec(-30));
                 this.omx_player.back30();
-                this.sendCursorInfos();
+                this.sendCursorInfos(client);
                 break;
             case KEYS.PLAYBACK_FORWARD30:
                 this.updateMediaCursor();
                 this.moveCursor(util.sec(30));
                 this.omx_player.fwd30();
-                this.sendCursorInfos();
+                this.sendCursorInfos(client);
                 break;
             case KEYS.PLAYBACK_FORWARD600:
                 this.updateMediaCursor();
                 this.moveCursor(util.sec(600));
                 this.omx_player.fwd600();
-                this.sendCursorInfos();
+                this.sendCursorInfos(client);
                 break;
             case KEYS.AUDIO_TRACK_NEXT:
                 this.omx_player.nextAudio();
@@ -286,7 +335,7 @@ RCPI.prototype.send_to_omx = function(key){
                 this.omx_player.info();
                 break;
             default:
-                console.log('key not found '+key);
+                util.log('key not found '+key);
                 break;
         }
     }
@@ -308,11 +357,11 @@ RCPI.prototype.get_cursor_packet = function(){
 
 RCPI.prototype.sendInfos = function(){
     this.broadcast(KEYS.FINFOS, this.get_play_packet());
-    this.clients.update_clients_timeout(this.isMediaPlaying ? (this.currentMediaDuration_ - this.currentMediaCursor_) : 0);
+    this.clients.update_timeout(this.isMediaPlaying ? (this.currentMediaDuration_ - this.currentMediaCursor_) : 0);
 };
 RCPI.prototype.sendCursorInfos = function(){
     this.broadcast(KEYS.FINFOS, this.get_cursor_packet());
-    this.clients.update_clients_timeout(this.isMediaPlaying ? (this.currentMediaDuration_ - this.currentMediaCursor_) : 0);
+    this.clients.update_timeout(this.isMediaPlaying ? (this.currentMediaDuration_ - this.currentMediaCursor_) : 0);
 };
 
 RCPI.prototype.broadcast = function(action, data){
@@ -355,16 +404,50 @@ RCPI.prototype.clean_exit = function(){
     }
     if (this.wsServer !== null) {
         this.wsServer.close(function () {
-            console.log('WSServer closed!');
+            util.log('WSServer closed!');
             process.exit(); // should call exitHandler with cleanup
         });
     }
     if (this.udpServer !== null) {
         this.udpServer.close(function () {
-            console.log('UDPServer closed!');
+            util.log('UDPServer closed!');
         });
     }
 };
+
+RCPI.prototype.download = function(client, url){
+    let mediaUrl = url;
+    wget({
+        url:  url,
+        dest: this.downloadDir,      // destination path or path with filenname, default is ./
+        timeout: 2000       // duration to wait for request fulfillment in milliseconds, default is 2 seconds
+    }, function(error, response){
+        if(error){
+            
+        }
+        else{
+
+        }
+    });
+};
+
+RCPI.prototype.sub_debug = function(client){
+    if (this.subs.indexOf(client) === -1){
+        this.subs.push(client);
+        return true;
+    }
+    return false;
+};
+
+RCPI.prototype.unsub_debug = function(client){
+    let iof = this.subs.indexOf(client);
+    if (iof > -1){
+        this.subs.splice(iof, 1);
+        return true;
+    }
+    return false;
+};
+
 
 function getFilmName(path){
     var a = path.split("/");

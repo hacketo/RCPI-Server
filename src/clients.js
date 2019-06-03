@@ -2,6 +2,8 @@
  * Created by hacketo on 21/07/18.
  */
 
+const util = require('./util');
+
 /**
  * @class
  * @constructor
@@ -14,8 +16,8 @@ function Clients(){
      */
     this.list = new Map();
 
-    this.timeout_duration = 600000;
-
+    this.default_timeout_duration = util.sec(300); // 5 mins
+    this.timeout_duration = this.default_timeout_duration;
 }
 
 /**
@@ -31,13 +33,12 @@ Clients.prototype.handle_client = function(server, rinfo){
     if (this.list.has(cKey)){
         client = this.list.get(cKey);
         client.closed = false;
-        this.update_client_timeout(client);
     }
     else{
 	    client = server.get_client_provider()(rinfo);
 	    this.add_client_(cKey, client);
     }
-
+    client.ping();
     return client;
 };
 
@@ -77,23 +78,35 @@ Clients.prototype.close_client_ = function(cKey){
  * @param {string|Array|Object} data
  */
 Clients.prototype.broadcast = function(action, data){
-  this.list.forEach((client) => {
-     if (!client.closed){
-        client.send(action, data);
-     }
-  });
-};
-
-Clients.prototype.update_clients_timeout = function(timeout){
-    this.timeout_duration = timeout + 600000;
-    this.list.forEach((client, cKey) => {
+    this.list.forEach((client, cId, list) => {
         if (!client.closed){
-            this.update_client_timeout(client);
+            if (+new Date() - client.timeout > this.timeout_duration ){
+               this.close_client_(client.get_id());
+            }
+           client.send(action, data);
         }
     });
 };
 
+/**
+ * Update the timeout for all the clients
+ * @param {Client} client - client that send the cmd
+ * @param {number} timeout - time in ms to add to default timeout
+ * @param {boolean} sendToAll - true if update the timeout for all clients
+ */
+Clients.prototype.update_timeout = function(timeout){
+    this.timeout_duration = this.default_timeout_duration + timeout;
+};
+
+/**
+ * Update the timeout for a client
+ * @deprecated
+ */
 Clients.prototype.update_client_timeout = function(client){
+    // Client has to be in the list to continue, makes no sense
+    if (this.list.indexOf(client) == -1 || client.closed){
+        return;
+    }
 
     if (client.close_timeout !== null){
         clearTimeout(client.close_timeout);

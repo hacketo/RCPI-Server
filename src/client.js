@@ -8,6 +8,8 @@
 function Client(clients){
 	this.closed = false;
 	this.close_timeout = null;
+
+	this.timeout = +new Date();
 }
 
 /**
@@ -23,6 +25,13 @@ Client.prototype.close = function(){
 
 Client.prototype.is_closed = function(){
 	return this.closed;
+};
+
+/**
+ * Refresh the timeout of the client
+ */
+Client.prototype.ping = function(){
+	this.timeout = +new Date();
 };
 
 /**
