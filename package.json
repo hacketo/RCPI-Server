@@ -22,12 +22,13 @@
     "url": "http://d3vx.fr/"
   },
   "dependencies": {
-    "body-parser": "^1.18.2",
-    "express": "^4.16.3",
+    "body-parser": "^1.19.0",
+    "express": "^4.16.4",
     "forever-monitor": "^1.7.1",
     "get-video-duration": "^0.3.0",
     "msgpack": "^1.0.2",
     "node-omxplayer": "git://github.com/hacketo/node-omxplayer.git#a085135941b70096b080775691708907b0fb3a7e",
-    "youtube-dl": "^1.12.2"
+    "node-vtt-to-srt": "^1.0.0",
+    "youtube-dl": "^2.0.0"
   }
 }

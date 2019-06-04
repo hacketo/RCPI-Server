@@ -37,7 +37,7 @@ function RCPI(config){
         ws_port : 9877,
         mediaDirs : ["/media/pi", "/home/pi/Video"],
         downloadDir: "/home/pi/Video",
-        tempDir: __dirname+"/temp",
+        tempDir: __dirname+"/../temp",
     }, config);
 
     this.mediaDirs = config.mediaDirs;
@@ -132,6 +132,7 @@ RCPI.prototype.onOPEN = function(client, path){
     this.spawn_omxplayer(path);
 }
 
+
 RCPI.prototype.onDEBUG = function(client, cmd){
     if (!cmd){
         util.log('no cmd specified');
@@ -164,8 +165,12 @@ RCPI.prototype.onDEBUG = function(client, cmd){
 RCPI.prototype.get_available_media = function(){
     var l = [];
     this.mediaDirs.forEach(function(i){
-        if (fs.existsSync(i)){
-            l = l.concat(util.walk(i));
+        try {
+            if (fs.existsSync(i)) {
+                l = l.concat(util.walk(i));
+            }
+        }catch(e){
+
         }
     });
     if (l.length > 0){
@@ -176,6 +181,7 @@ RCPI.prototype.get_available_media = function(){
 };
 RCPI.MOCK_MEDIALIST = ["/a","/b"];
 
+const VTT_EXT = ".vtt";
 /**
  *
  * @param {string} media
@@ -187,7 +193,7 @@ RCPI.prototype.spawn_omxplayer = function(media){
     }
     else {
         //TODO-tt empty for regular quality
-        let args = ["-f bestvideo"];
+        let args = [];
 
         youtubedl.getInfo(media, args, (err, info) => {
             if (err) {
@@ -200,7 +206,7 @@ RCPI.prototype.spawn_omxplayer = function(media){
 
                 let options = {
                     // Write automatic subtitle file (youtube only)
-                    auto: false,
+                    auto: true,
                     // Downloads all the available subtitles.
                     all: false,
                     // Subtitle format. YouTube generated subtitles
@@ -213,10 +219,32 @@ RCPI.prototype.spawn_omxplayer = function(media){
                 };
 
                 youtubedl.getSubs(url, options, (err, files) => {
-                    if (err) util.error(err);
+                    if (err){
+                        util.error(err);
+                    }
+                    let subtitleFile;
+                    if (files && files[0]){
+                        subtitleFile = files[0];
+
+                        if (subtitleFile.endsWith(VTT_EXT)){
+
+                            import fs from 'fs';
+                            import vtt2srt from 'vtt-to-srt';
+
+                            let newFileName = this.tempDir + '/'+subtitleFile.slice(0, subtitleFile.length - VTT_EXT.length)+'.srt';
+
+                            fs.createReadStream(this.tempDir + '/'+subtitleFile)
+                                .pipe(vtt2srt())
+                                .pipe(fs.createWriteStream(newFileName));
+
+
+
+                            // TODO // new filename
+                        }
+                    }
 
                     console.log('subtitle files downloaded:', files);
-                    this.spawn_(url, duration, files[0]);
+                    this.spawn_(url, duration, subtitleFile);
                 });
 
 
