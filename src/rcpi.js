@@ -228,8 +228,7 @@ RCPI.prototype.spawn_omxplayer = function(media){
 
                         if (subtitleFile.endsWith(VTT_EXT)){
 
-                            import fs from 'fs';
-                            import vtt2srt from 'vtt-to-srt';
+                            const vtt2srt = require('vtt-to-srt');
 
                             let newFileName = this.tempDir + '/'+subtitleFile.slice(0, subtitleFile.length - VTT_EXT.length)+'.srt';
 
