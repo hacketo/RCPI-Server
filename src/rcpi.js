@@ -204,6 +204,11 @@ RCPI.prototype.spawn_omxplayer = function(media){
                 let url = info.url;
                 let duration = info._duration_raw;
 
+                if (info.extractor !== 'youtube') {
+                    return this.spawn_(url, duration);
+                }
+
+
                 let options = {
                     // Write automatic subtitle file (youtube only)
                     auto: true,
@@ -219,23 +224,22 @@ RCPI.prototype.spawn_omxplayer = function(media){
                 };
 
                 youtubedl.getSubs(url, options, (err, files) => {
-                    if (err){
+                    if (err) {
                         util.error(err);
                     }
                     let subtitleFile;
-                    if (files && files[0]){
+                    if (files && files[0]) {
                         subtitleFile = files[0];
 
-                        if (subtitleFile.endsWith(VTT_EXT)){
+                        if (subtitleFile.endsWith(VTT_EXT)) {
 
                             const vtt2srt = require('vtt-to-srt');
 
-                            let newFileName = this.tempDir + '/'+subtitleFile.slice(0, subtitleFile.length - VTT_EXT.length)+'.srt';
+                            let newFileName = this.tempDir + '/' + subtitleFile.slice(0, subtitleFile.length - VTT_EXT.length) + '.srt';
 
-                            fs.createReadStream(this.tempDir + '/'+subtitleFile)
+                            fs.createReadStream(this.tempDir + '/' + subtitleFile)
                                 .pipe(vtt2srt())
                                 .pipe(fs.createWriteStream(newFileName));
-
 
 
                             // TODO // new filename
@@ -245,10 +249,6 @@ RCPI.prototype.spawn_omxplayer = function(media){
                     console.log('subtitle files downloaded:', files);
                     this.spawn_(url, duration, subtitleFile);
                 });
-
-
-
-
             }
         });
     }
