@@ -4,7 +4,7 @@
 
 var EventEmitter = require('events');
 
-function Omx(source, output, loop, initialVolume, showOsd){
+function Omx(source, output, loop, initialVolume, showOsd, subtitles){
     var omxplayer = new EventEmitter();
     var player = null;
     var open = false;
@@ -26,8 +26,8 @@ function Omx(source, output, loop, initialVolume, showOsd){
     }
 
     // Spawns the omxplayer process.
-    function spawnPlayer (src, out, loop, initialVolume, showOsd) {
-        console.log('MOCK OMX : args for omxplayer:', src, out, loop, initialVolume, showOsd);
+    function spawnPlayer (src, out, loop, initialVolume, showOsd, subtitles) {
+        console.log('MOCK OMX : args for omxplayer:', src, out, loop, initialVolume, showOsd, subtitles);
         open = true;
     }
 
@@ -44,20 +44,20 @@ function Omx(source, output, loop, initialVolume, showOsd){
 
     // ----- Setup ----- //
     if (source) {
-        spawnPlayer(source, output, loop, initialVolume, showOsd);
+        spawnPlayer(source, output, loop, initialVolume, showOsd, subtitles);
     }
 
     // ----- Methods ----- //
 
     // Restarts omxplayer with a new source.
-    omxplayer.newSource = function(src, out, loop, initialVolume, showOsd) {
+    omxplayer.newSource = function(src, out, loop, initialVolume, showOsd, subtitles) {
 
         if (open) {
             writeStdin('q');
 
         } else {
 
-            spawnPlayer(src, out, loop, initialVolume, showOsd);
+            spawnPlayer(src, out, loop, initialVolume, showOsd, subtitles);
 
         }
 
