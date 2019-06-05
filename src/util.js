@@ -2,7 +2,7 @@
  * Created by hacketo on 25/05/18.
  */
 
-var fs = require('fs');
+const fs = require('fs');
 
 function walk(dir, sub){
     sub = sub || 0;
@@ -25,6 +25,13 @@ function walk(dir, sub){
         }
     });
     return results;
+}
+
+function deleteFile(filePath){
+    fs.unlink(filePath, (err) => {
+        if (err) throw err;
+        debug('Subtitle file '+filePath+' was deleted');
+    })
 }
 
 var EXT_LIST = ['avi', 'mkv', 'mp4', 'm4v'];
@@ -65,6 +72,8 @@ function debug(msg){
 module.exports.walk = walk;
 module.exports.computePacket = computePacket;
 module.exports.sec = sec;
+
+module.exports.deleteFile = deleteFile;
 
 module.exports.log = log;
 module.exports.error = error;

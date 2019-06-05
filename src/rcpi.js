@@ -182,9 +182,11 @@ RCPI.prototype.get_available_media = function(){
 RCPI.MOCK_MEDIALIST = ["/a","/b"];
 
 const VTT_EXT = ".vtt";
+const SRT_EXT = ".srt";
+
 /**
  *
- * @param {string} media
+ * @param {string} media - url of the media file used for the omx instance source
  */
 RCPI.prototype.spawn_omxplayer = function(media){
     this.asked_close = false;
@@ -223,31 +225,52 @@ RCPI.prototype.spawn_omxplayer = function(media){
                     cwd: this.tempDir,
                 };
 
-                youtubedl.getSubs(url, options, (err, files) => {
+                youtubedl.getSubs(media, options, (err, files) => {
+
+                    let subtitleFile;
+
                     if (err) {
                         util.error(err);
                     }
-                    let subtitleFile;
-                    if (files && files[0]) {
-                        subtitleFile = files[0];
+                    else {
+                        if (files && typeof files[0] === "string") {
+                            subtitleFile = files[0];
 
-                        if (subtitleFile.endsWith(VTT_EXT)) {
+                            util.debug("Subtitles got "+subtitleFile);
 
-                            const vtt2srt = require('vtt-to-srt');
+                            let filePath = this.tempDir + '/' + subtitleFile;
 
-                            let newFileName = this.tempDir + '/' + subtitleFile.slice(0, subtitleFile.length - VTT_EXT.length) + '.srt';
+                            if (subtitleFile.endsWith(VTT_EXT)) {
 
-                            fs.createReadStream(this.tempDir + '/' + subtitleFile)
-                                .pipe(vtt2srt())
-                                .pipe(fs.createWriteStream(newFileName));
+                                try {
+                                    const vtt2srt = require('node-vtt-to-srt');
+                                    subtitleFile = this.tempDir + '/' + subtitleFile.slice(0, subtitleFile.length - VTT_EXT.length) + SRT_EXT;
 
+                                    fs.createReadStream(filePath)
+                                        .pipe(vtt2srt())
+                                        .pipe(fs.createWriteStream(subtitleFile));
+                                }
+                                catch (e) {
+                                    util.error(e);
+                                    util.deleteFile(subtitleFile);
+                                    subtitleFile = "";
+                                }
+                            }
 
-                            // TODO // new filename
+                            if (!subtitleFile.endsWith(SRT_EXT)) {
+                                subtitleFile = null;
+                            }
+
+                            if (!subtitleFile) {
+                                util.deleteFile(filePath);
+                            }
+                            else{
+                                util.log('SUBTITLES: '+ subtitleFile);
+                            }
                         }
                     }
 
-                    console.log('subtitle files downloaded:', files);
-                    this.spawn_(url, duration, subtitleFile);
+                    this.spawn_(url, duration, media, subtitleFile);
                 });
             }
         });
@@ -256,22 +279,24 @@ RCPI.prototype.spawn_omxplayer = function(media){
 
 /**
  *
- * @param {string} media
- * @param {number=} duration
+ * @param {string} media - url of the media file used for the omx instance source
+ * @param {number} duration - duration of the media in seconds
+ * @param {string=} displayedUrl - url used to display a different url than the actual video file
+ * @param {string=} subtitles - path of the file to use as subtitles for the media
  * @private
  */
-RCPI.prototype.spawn_ = function(media, duration){
+RCPI.prototype.spawn_ = function(media, duration, displayedUrl, subtitles){
     if (RCPI.MOCK_MEDIALIST.indexOf(media) > -1){
         duration = 10000;
     }
 
     if (typeof duration !== 'undefined'){
-        this.spawnOk_(media, duration);
+        this.spawnOk_(media, duration, displayedUrl, subtitles);
         return;
     }
 
-    getvideoduration(media).then((d) => {
-    	this.spawnOk_(media, d);
+    getvideoduration(media).then((duration) => {
+    	this.spawnOk_(media, duration, displayedUrl, subtitles);
     }, function(error){
         util.error(media, error);
     });
@@ -279,18 +304,23 @@ RCPI.prototype.spawn_ = function(media, duration){
 
 /**
  *
- * @param {string} media
- * @param {int|float} duration
+ * @param {string} media - url of the media
+ * @param {int|float} duration - duration of the media in seconds
+ * @param {string=} displayedUrl - path of the file to use as subtitles for the media
+ * @param {string=} subtitles - path of the file to use as subtitles for the media
  * @private
  */
-RCPI.prototype.spawnOk_ = function(media, duration, subtitles){
-    util.log('lancement '+media+' durée '+duration);
+RCPI.prototype.spawnOk_ = function(media, duration, displayedUrl, subtitles){
+
+    displayedUrl = displayedUrl || media;
+
+    util.log('lancement '+displayedUrl+' durée '+duration);
 
     this.currentMediaDuration_ = Math.round(duration * 1000);
 
     // If omx was never initialized create new instance and setup listeners
     if (this.omx_player == null){
-        this.omx_player = Omx(media, 'hdmi', false, this.volume, subtitles);
+        this.omx_player = Omx(media, 'hdmi', false, this.volume, false, subtitles);
 
         this.omx_player.on('error', msg => {
             util.error("error", msg);
@@ -311,14 +341,14 @@ RCPI.prototype.spawnOk_ = function(media, duration, subtitles){
         });
     }
     else{
-        this.omx_player.newSource(media, 'hdmi', false, this.volume);
+        this.omx_player.newSource(media, 'hdmi', false, this.volume, false, subtitles);
     }
 
     // New media should be spawning now, so we might want to update the timeout duration for the connected clients
     // It should be duration of the media + 5 min or 10 min ?
     this.clients.update_timeout(this.currentMediaDuration_);
 
-    this.mediaPath = media;
+    this.mediaPath = displayedUrl;
     this.resetMediaCursor();
     this.sendInfos();
 };

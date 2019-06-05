@@ -27,7 +27,7 @@
     "forever-monitor": "^1.7.1",
     "get-video-duration": "^0.3.0",
     "msgpack": "^1.0.2",
-    "node-omxplayer": "git://github.com/hacketo/node-omxplayer.git#a085135941b70096b080775691708907b0fb3a7e",
+    "node-omxplayer": "git://github.com/hacketo/node-omxplayer.git#078ac97b602e66877c72434ea1fbc0e040753fad",
     "node-vtt-to-srt": "^1.0.0",
     "youtube-dl": "^2.0.0"
   }
