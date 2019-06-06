@@ -11,7 +11,7 @@ const fs = require('fs'),
     KEYS = require('./keys').KEYS,
     Clients = require('./clients').Clients;
 const exec = require('child_process').exec;
-const vtt2srt = require('node-vtt-to-srt');
+const Subtitle = require('subtitle');
 
 let Omx = require('./mock.js');
 
@@ -243,59 +243,92 @@ RCPI.prototype.spawn_omxplayer = function(media){
 
                 youtubedl.getSubs(media, options, (err, files) => {
 
-                    let subtitleFile;
-
                     if (err) {
                         util.error(err);
                     }
                     else {
                         if (files && typeof files[0] === "string") {
-
-                            subtitleFile = this.tempDir + '/' + files[0];
-
-                            util.debug("Subtitles "+subtitleFile);
-
-                            if (subtitleFile.endsWith(VTT_EXT)) {
-                                let originalFile = subtitleFile;
-                                let srtFile = originalFile.slice(0, originalFile.length - VTT_EXT.length) + SRT_EXT;
-
-                                // Will use already cached file
-                                if (fs.existsSync(srtFile)) {
-                                    util.deleteFile(originalFile);
-                                    subtitleFile = srtFile;
-                                }
-                                else{
-                                    try {
-                                        fs.createReadStream(originalFile)
-                                            .pipe(vtt2srt())
-                                            .pipe(fs.createWriteStream(srtFile));
-
-                                        subtitleFile = srtFile;
-                                    } catch (e) {
-                                        util.error(e);
-                                        subtitleFile = originalFile;
-                                        util.deleteFile(srtFile);
-                                    }
-                                    util.deleteFile(originalFile);
-                                }
-                            }
-
-                            if (!subtitleFile.endsWith(SRT_EXT)) {
-                                util.deleteFile(subtitleFile);
-                                subtitleFile = null;
-                            }
-
-                            if (subtitleFile) {
-                                util.log('SUBTITLES: '+ subtitleFile);
-                            }
+                            let subtitleFile = this.tempDir + '/' + files[0];
+                            this.handleSubtitles(subtitleFile).then( (subtitleFile) =>{
+                                this.spawn_(url, duration, media, subtitleFile);
+                            });
+                            return;
                         }
                     }
 
-                    this.spawn_(url, duration, media, subtitleFile);
+                    this.spawn_(url, duration, media);
+
                 });
             }
         });
     }
+};
+
+/**
+ *
+ * @param {string} subtitleFile
+ * @returns {Promise<void|string>}
+ */
+RCPI.prototype.handleSubtitles = function(subtitleFile){
+
+    return new Promise(resolve => {
+
+        util.debug("Subtitles "+subtitleFile);
+
+
+        if (subtitleFile.endsWith(VTT_EXT)) {
+            let originalFile = subtitleFile;
+            let srtFile = originalFile.slice(0, originalFile.length - VTT_EXT.length) + SRT_EXT;
+
+            // Will use already cached file
+            if (fs.existsSync(srtFile)) {
+                util.deleteFile(originalFile);
+                subtitleFile = srtFile;
+                resolve(srtFile);
+            }
+            else{
+                fs.readFile(originalFile, 'utf8', (err, data) => {
+                    util.deleteFile(originalFile);
+
+                    if (err) {
+                        util.error(err);
+                        resolve(originalFile);
+                    }
+                    else {
+                        let srtdata = Subtitle.stringify(Subtitle.parse(data));
+
+                        fs.writeFile(srtFile, srtdata, (err) => {
+                            if (err) {
+                                util.error(err);
+                                util.deleteFile(srtFile);
+                                resolve();
+                            }
+                            else {
+                                util.log('The file has been saved!');
+                                resolve(srtFile);
+                            }
+                        });
+                    }
+                });
+            }
+        }
+        resolve(subtitleFile);
+    })
+    .then (subtitleFile => {
+
+        if (subtitleFile) {
+            if (!subtitleFile.endsWith(SRT_EXT)) {
+                util.deleteFile(subtitleFile);
+                subtitleFile = null;
+            }
+        }
+
+        if (subtitleFile) {
+            util.log('SUBTITLES: '+ subtitleFile);
+        }
+
+        return subtitleFile;
+    });
 };
 
 /**
