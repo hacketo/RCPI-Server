@@ -4,6 +4,16 @@
 
 var EventEmitter = require('events');
 
+/**
+ *
+ * @param {string} source
+ * @param {string} output - 'hdmi', 'local', 'both', 'alsa'
+ * @param {boolean=} loop
+ * @param {number=} initialVolume
+ * @param {boolean=} showOsd
+ * @param {Array=} customArgs
+ * @return {EventEmitter}
+ */
 function Omx(source, output, loop, initialVolume, showOsd, customArgs){
     var omxplayer = new EventEmitter();
     var player = null;
@@ -47,9 +57,18 @@ function Omx(source, output, loop, initialVolume, showOsd, customArgs){
         spawnPlayer(source, output, loop, initialVolume, showOsd, customArgs);
     }
 
-    // ----- Methods ----- //
 
-    // Restarts omxplayer with a new source.
+    // ----- Methods ----- //
+    /**
+     *
+     * Restarts omxplayer with a new source.
+     * @param {string} src
+     * @param {string} out - 'hdmi', 'local', 'both', 'alsa'
+     * @param {boolean=} loop
+     * @param {number=} initialVolume
+     * @param {boolean=} showOsd
+     * @param {Array=} customArgs
+     */
     omxplayer.newSource = function(src, out, loop, initialVolume, showOsd, customArgs) {
 
         if (open) {
@@ -57,7 +76,7 @@ function Omx(source, output, loop, initialVolume, showOsd, customArgs){
 
         } else {
 
-            spawnPlayer(src, out, loop, initialVolume, showOsd, subtitles);
+            spawnPlayer(src, out, loop, initialVolume, showOsd, customArgs);
 
         }
 

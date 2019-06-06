@@ -2,22 +2,21 @@
  * Created by hacketo on 25/05/18.
  */
 
-var fs = require('fs'),
+const fs = require('fs'),
     util = require('./util'),
     youtubedl = require('youtube-dl'),
     getvideoduration = require('get-video-duration'),
     UDPServer = require('./udp').UDPServer,
     WSServer = require('./websockets').WSServer,
     KEYS = require('./keys').KEYS,
-    Clients = require('./clients').Clients,
-    Omx = null;
+    Clients = require('./clients').Clients;
+const exec = require('child_process').exec;
 const vtt2srt = require('node-vtt-to-srt');
 
-var exec = require('child_process').exec;
+let Omx = require('./mock.js');
 
 exec('command -v omxplayer', function(err, stdout) {
     if (err || stdout.length === 0) {
-        Omx = require('./mock.js');
         util.log('/!\\ MOCK : OMX NOT INSTALLED /!\\');
     }
     else{
@@ -26,7 +25,7 @@ exec('command -v omxplayer', function(err, stdout) {
 });
 
 /**
- *
+ * @class
  * @param config
  * @constructor
  */
@@ -45,6 +44,10 @@ function RCPI(config){
     this.downloadDir = config.downloadDir;
     this.tempDir = config.tempDir;
 
+    /**
+     *
+     * @type {EventEmitter}
+     */
     this.omx_player = null;
     this.udpServer = null;
     this.wsServer = null;
@@ -296,7 +299,7 @@ RCPI.prototype.spawn_omxplayer = function(media){
 };
 
 /**
- *
+ * Ensure that we have duration info about the media, then will call the @see {RCPI#spawnOk_} method
  * @param {string} media - url of the media file used for the omx instance source
  * @param {number} duration - duration of the media in seconds
  * @param {string=} displayedUrl - url used to display a different url than the actual video file
@@ -321,7 +324,7 @@ RCPI.prototype.spawn_ = function(media, duration, displayedUrl, subtitles){
 };
 
 /**
- *
+ * Spawn a new instance of Omx/resuse one, play the media with optional subtitles
  * @param {string} media - url of the media
  * @param {int|float} duration - duration of the media in seconds
  * @param {string=} displayedUrl - path of the file to use as subtitles for the media
@@ -336,9 +339,11 @@ RCPI.prototype.spawnOk_ = function(media, duration, displayedUrl, subtitles){
 
     this.currentMediaDuration_ = Math.round(duration * 1000);
 
+    let custorm_omx_args = ['--subtitles', subtitles, '--align','center'];
+
     // If omx was never initialized create new instance and setup listeners
     if (this.omx_player == null){
-        this.omx_player = Omx(media, 'hdmi', false, this.volume, false, ['--subtitles', subtitles, '--align','center']);
+        this.omx_player = Omx(media, 'hdmi', false, this.volume, false, custorm_omx_args);
 
         this.omx_player.on('error', msg => {
             util.error("error", msg);
@@ -359,7 +364,7 @@ RCPI.prototype.spawnOk_ = function(media, duration, displayedUrl, subtitles){
         });
     }
     else{
-        this.omx_player.newSource(media, 'hdmi', false, this.volume, false, subtitles);
+        this.omx_player.newSource(media, 'hdmi', false, this.volume, false, custorm_omx_args);
     }
 
     // New media should be spawning now, so we might want to update the timeout duration for the connected clients
