@@ -50,7 +50,7 @@ function RCPI(config){
     this.wsServer = null;
 
     this.mediaPath = "";
-    this.volume = -500;
+    this.volume = -600;
 
     /**
      * Time in milliseconds
@@ -338,7 +338,7 @@ RCPI.prototype.spawnOk_ = function(media, duration, displayedUrl, subtitles){
 
     // If omx was never initialized create new instance and setup listeners
     if (this.omx_player == null){
-        this.omx_player = Omx(media, 'hdmi', false, this.volume, false, subtitles);
+        this.omx_player = Omx(media, 'hdmi', false, this.volume, false, ['--subtitles', subtitles, '--align','center']);
 
         this.omx_player.on('error', msg => {
             util.error("error", msg);
