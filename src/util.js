@@ -66,7 +66,7 @@ function error(msg){
     console.error(msg);
 }
 function debug(msg){
-    console.debug(msg);
+    console.log(msg);
 }
 
 module.exports.walk = walk;

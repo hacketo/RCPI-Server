@@ -11,6 +11,7 @@ var fs = require('fs'),
     KEYS = require('./keys').KEYS,
     Clients = require('./clients').Clients,
     Omx = null;
+const vtt2srt = require('node-vtt-to-srt');
 
 var exec = require('child_process').exec;
 
@@ -202,6 +203,7 @@ RCPI.prototype.spawn_omxplayer = function(media){
                 util.error(err);
             }
             else {
+                util.debug(info);
 
                 let url = info.url;
                 let duration = info._duration_raw;
@@ -210,6 +212,17 @@ RCPI.prototype.spawn_omxplayer = function(media){
                     return this.spawn_(url, duration);
                 }
 
+
+                if (typeof info._filename === "string") {
+                    let subtitleFile = this.tempDir + '/' + info._filename.slice(0, info._filename.length - info.ext.length - 1) + "." + "fr" + SRT_EXT;
+
+                    if (fs.existsSync(subtitleFile)){
+                        util.log('file already exists : using '+subtitleFile);
+                        return this.spawn_(url, duration, media, subtitleFile);
+                    }
+                }
+
+                util.log('Try downloading subtitles ');
 
                 let options = {
                     // Write automatic subtitle file (youtube only)
@@ -234,37 +247,42 @@ RCPI.prototype.spawn_omxplayer = function(media){
                     }
                     else {
                         if (files && typeof files[0] === "string") {
-                            subtitleFile = files[0];
 
-                            util.debug("Subtitles got "+subtitleFile);
+                            subtitleFile = this.tempDir + '/' + files[0];
 
-                            let filePath = this.tempDir + '/' + subtitleFile;
+                            util.debug("Subtitles "+subtitleFile);
 
                             if (subtitleFile.endsWith(VTT_EXT)) {
+                                let originalFile = subtitleFile;
+                                let srtFile = originalFile.slice(0, originalFile.length - VTT_EXT.length) + SRT_EXT;
 
-                                try {
-                                    const vtt2srt = require('node-vtt-to-srt');
-                                    subtitleFile = this.tempDir + '/' + subtitleFile.slice(0, subtitleFile.length - VTT_EXT.length) + SRT_EXT;
-
-                                    fs.createReadStream(filePath)
-                                        .pipe(vtt2srt())
-                                        .pipe(fs.createWriteStream(subtitleFile));
+                                // Will use already cached file
+                                if (fs.existsSync(srtFile)) {
+                                    util.deleteFile(originalFile);
+                                    subtitleFile = srtFile;
                                 }
-                                catch (e) {
-                                    util.error(e);
-                                    util.deleteFile(subtitleFile);
-                                    subtitleFile = "";
+                                else{
+                                    try {
+                                        fs.createReadStream(originalFile)
+                                            .pipe(vtt2srt())
+                                            .pipe(fs.createWriteStream(srtFile));
+
+                                        subtitleFile = srtFile;
+                                    } catch (e) {
+                                        util.error(e);
+                                        subtitleFile = originalFile;
+                                        util.deleteFile(srtFile);
+                                    }
+                                    util.deleteFile(originalFile);
                                 }
                             }
 
                             if (!subtitleFile.endsWith(SRT_EXT)) {
+                                util.deleteFile(subtitleFile);
                                 subtitleFile = null;
                             }
 
-                            if (!subtitleFile) {
-                                util.deleteFile(filePath);
-                            }
-                            else{
+                            if (subtitleFile) {
                                 util.log('SUBTITLES: '+ subtitleFile);
                             }
                         }
