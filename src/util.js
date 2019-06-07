@@ -29,9 +29,28 @@ function walk(dir, sub){
 
 function deleteFile(filePath){
   fs.unlink(filePath, (err) => {
-        //if (err) throw err;
+    //if (err) throw err;
     debug(`Subtitle file ${filePath} was ${err ? 'NOT ' : ''}deleted`);
   });
+}
+
+/**
+ * Delete a set of files that are not in the excepts list
+ * @param {Array<string>} files - files path
+ * @param {Array<string>=} excepts - list of files to exclude from the file list
+ */
+function deleteFiles(files, excepts){
+  excepts = excepts || [];
+  if (Array.isArray(files)){
+    files.forEach(file => {
+      if (file){
+        file = this.tempDir + '/' + file;
+        if (!excepts.includes(file)){
+          util.deleteFile(file);
+        }
+      }
+    });
+  }
 }
 
 const EXT_LIST = ['avi', 'mkv', 'mp4', 'm4v'];
@@ -140,6 +159,7 @@ module.exports.computePacket = computePacket;
 module.exports.sec = sec;
 
 module.exports.deleteFile = deleteFile;
+module.exports.deleteFiles = deleteFiles;
 
 module.exports.log = log;
 module.exports.error = error;
