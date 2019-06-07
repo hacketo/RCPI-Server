@@ -25,6 +25,7 @@ exec('command -v omxplayer', function(err, stdout) {
 });
 
 /**
+ * @name RCPI
  * @class
  * @param config
  * @constructor
@@ -98,6 +99,8 @@ function RCPI(config){
 	 * @type {Clients}
 	 */
 	this.clients = null;
+
+	this.spawn_id = 0;
 }
 
 /**
@@ -120,12 +123,12 @@ RCPI.prototype.init = function(){
 RCPI.prototype.onPING = function(client){
     this.updateMediaCursor();
     client.send(KEYS.FINFOS, this.get_play_packet());
-}
+};
 
 
 RCPI.prototype.onLIST = function(client){
     client.send(KEYS.LIST, this.get_available_media());
-}
+};
 
 
 RCPI.prototype.onOPEN = function(client, path){
@@ -134,7 +137,7 @@ RCPI.prototype.onOPEN = function(client, path){
         return;
     }
     this.spawn_omxplayer(path);
-}
+};
 
 
 RCPI.prototype.onDEBUG = function(client, cmd){
@@ -160,7 +163,7 @@ RCPI.prototype.onDEBUG = function(client, cmd){
 
         }
     }
-}
+};
 
 /**
  * Browse this.mediaDirs to get a list of media
@@ -193,39 +196,57 @@ const SRT_EXT = ".srt";
  * @param {string} media - url of the media file used for the omx instance source
  */
 RCPI.prototype.spawn_omxplayer = function(media){
+
+    // Increment spawn id counter
+    let spawnID = ++this.spawn_id;
+
+    // reset flag
     this.asked_close = false;
+
+    // If media starts with / we assume that it's a local path, will be handled by getmediaduration
     if (media.startsWith('/')){
-        this.spawn_(media);
+        this.spawn_(spawnID, media);
     }
+
+    // Handle Web urls
     else {
         //TODO-tt empty for regular quality
         let args = [];
-
         youtubedl.getInfo(media, args, (err, info) => {
+
             if (err) {
                 util.error(err);
             }
-            else {
-                util.debug(info);
+
+            // If another spawn was started, no need to do anything here ...
+            if (this.checkSpawnID_(spawnID)){
+                return;
+            }
+
+            if (!err){
+                //util.debug(info);
 
                 let url = info.url;
+
+                // Duration of the media in ms
                 let duration = info._duration_raw;
 
+                // Only handle subtitles for youtube videos
                 if (info.extractor !== 'youtube') {
-                    return this.spawn_(url, duration);
+                    return this.spawn_(spawnID, url, duration);
                 }
 
-
+                // Check for a possible cached subtitles file
                 if (typeof info._filename === "string") {
-                    let subtitleFile = this.tempDir + '/' + info._filename.slice(0, info._filename.length - info.ext.length - 1) + "." + "fr" + SRT_EXT;
+                    let subtitleFile = this.computeSrtFilepath_(info, "fr");
 
                     if (fs.existsSync(subtitleFile)){
-                        util.log('file already exists : using '+subtitleFile);
-                        return this.spawn_(url, duration, media, subtitleFile);
+                        util.debug('file already exists : using '+subtitleFile);
+                        return this.spawn_(spawnID, url, duration, media, subtitleFile);
                     }
                 }
 
-                util.log('Try downloading subtitles ');
+                util.debug('Try downloading subtitles ');
 
                 let options = {
                     // Write automatic subtitle file (youtube only)
@@ -242,21 +263,43 @@ RCPI.prototype.spawn_omxplayer = function(media){
                 };
 
                 youtubedl.getSubs(media, options, (err, files) => {
-
                     if (err) {
                         util.error(err);
                     }
-                    else {
+
+                    // If not same spawnID we want to delete any files we could have downloaded
+                    if (this.checkSpawnID_(spawnID)){
+                        this.deleteFiles_(files);
+                        return;
+                    }
+
+                    if (!err) {
+                        // In case we have at least one subtitle in the 'files' list
                         if (files && typeof files[0] === "string") {
+
+                            util.debug("Downloaded sutitles : ", files);
+
                             let subtitleFile = this.tempDir + '/' + files[0];
-                            this.handleSubtitles(subtitleFile).then( (subtitleFile) =>{
-                                this.spawn_(url, duration, media, subtitleFile);
+
+                            // Start handling the downloaded file (format conversion ..)
+                            this.handleSubtitles(subtitleFile, spawnID).then( (subtitleFile) =>{
+
+                                if (this.checkSpawnID_(spawnID)){
+                                    return Promise.reject();
+                                }
+
+                                // Delete any other downloaded files that we don't need to use for the media
+                                this.deleteFiles_(files, [subtitleFile]);
+                                this.spawn_(spawnID, url, duration, media, subtitleFile);
+                            }).catch( reason =>{
+                                this.deleteFiles_(files);
                             });
                             return;
                         }
                     }
 
-                    this.spawn_(url, duration, media);
+                    this.deleteFiles_(files);
+                    this.spawn_(spawnID, url, duration, media);
 
                 });
             }
@@ -265,16 +308,63 @@ RCPI.prototype.spawn_omxplayer = function(media){
 };
 
 /**
+ * Delete a set of files that are not in the excepts list
+ * @param {Array<string>} files - files path
+ * @param {Array<string>=} excepts - list of files to exclude from the file list
+ * @private
+ */
+RCPI.prototype.deleteFiles_ = function(files, excepts){
+    excepts = excepts || [];
+    if (Array.isArray(files)){
+        files.forEach(file => {
+            if (file){
+                file = this.tempDir + '/' + file;
+                if (!excepts.includes(file)){
+                    util.deleteFile(file);
+                }
+            }
+        })
+    }
+};
+
+
+/**
+ *
+ * @param {{_filename:string, ext:string}} info
+ * @param {string} language
+ * @returns {string}
+ * @private
+ */
+RCPI.prototype.computeSrtFilepath_ = function(info, language){
+    return this.tempDir + '/' + info._filename.slice(0, info._filename.length - info.ext.length - 1) + "." + language + SRT_EXT;
+};
+
+/**
+ * Check is the spawnID parameter id the same as the one stored on the RCPI instance.
+ * If different it means that another spawn was called
+ * @param spawnID
+ * @returns {boolean}
+ * @private
+ */
+RCPI.prototype.checkSpawnID_ = function(spawnID){
+    return spawnID !== this.spawn_id;
+};
+
+/**
  *
  * @param {string} subtitleFile
+ * @param {number} spawnID
  * @returns {Promise<void|string>}
  */
-RCPI.prototype.handleSubtitles = function(subtitleFile){
+RCPI.prototype.handleSubtitles = function(subtitleFile, spawnID){
 
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
+
+        if (this.checkSpawnID_(spawnID)){
+            return reject();
+        }
 
         util.debug("Subtitles "+subtitleFile);
-
 
         if (subtitleFile.endsWith(VTT_EXT)) {
             let originalFile = subtitleFile;
@@ -292,29 +382,50 @@ RCPI.prototype.handleSubtitles = function(subtitleFile){
 
                     if (err) {
                         util.error(err);
+                    }
+
+                    if (this.checkSpawnID_(spawnID)){
+                        return reject();
+                    }
+
+                    if (err) {
+                        // Here originalFile will not have a valid format and will be deleted after if not already
                         resolve(originalFile);
                     }
                     else {
                         let srtdata = Subtitle.stringify(Subtitle.parse(data));
 
                         fs.writeFile(srtFile, srtdata, (err) => {
+                            let rValue;
                             if (err) {
                                 util.error(err);
                                 util.deleteFile(srtFile);
-                                resolve();
                             }
                             else {
-                                util.log('The file has been saved!');
-                                resolve(srtFile);
+                                util.debug('The file has been saved! : '+srtFile);
+                                rValue = srtFile;
                             }
+
+                            if (this.checkSpawnID_(spawnID)){
+                                return reject();
+                            }
+
+                            resolve(rValue);
                         });
                     }
                 });
             }
         }
-        resolve(subtitleFile);
+        else {
+            // Here subtitleFile will not have a valid format and will be deleted after if not already
+            resolve(subtitleFile);
+        }
     })
     .then (subtitleFile => {
+
+        if (this.checkSpawnID_(spawnID)){
+            return Promise.reject();
+        }
 
         if (subtitleFile) {
             if (!subtitleFile.endsWith(SRT_EXT)) {
@@ -332,39 +443,50 @@ RCPI.prototype.handleSubtitles = function(subtitleFile){
 };
 
 /**
- * Ensure that we have duration info about the media, then will call the @see {RCPI#spawnOk_} method
+ * Ensure that we have duration info about the media, then will call the @link {#spawnOk_} method
+ * @param {number} spawnID -
  * @param {string} media - url of the media file used for the omx instance source
- * @param {number} duration - duration of the media in seconds
+ * @param {number=} duration - duration of the media in seconds
  * @param {string=} displayedUrl - url used to display a different url than the actual video file
  * @param {string=} subtitles - path of the file to use as subtitles for the media
  * @private
  */
-RCPI.prototype.spawn_ = function(media, duration, displayedUrl, subtitles){
+RCPI.prototype.spawn_ = function(spawnID, media, duration, displayedUrl, subtitles){
     if (RCPI.MOCK_MEDIALIST.indexOf(media) > -1){
         duration = 10000;
     }
 
     if (typeof duration !== 'undefined'){
-        this.spawnOk_(media, duration, displayedUrl, subtitles);
+        this.spawnOk_(spawnID, media, duration, displayedUrl, subtitles);
         return;
     }
 
     getvideoduration(media).then((duration) => {
-    	this.spawnOk_(media, duration, displayedUrl, subtitles);
-    }, function(error){
+
+        if (this.checkSpawnID_(spawnID)){
+            return Promise.reject("another spawn instance started");
+        }
+
+    	this.spawnOk_(spawnID, media, duration, displayedUrl, subtitles);
+    }, (error) => {
         util.error(media, error);
     });
 };
 
 /**
  * Spawn a new instance of Omx/resuse one, play the media with optional subtitles
+ * @param {number} spawnID -
  * @param {string} media - url of the media
  * @param {int|float} duration - duration of the media in seconds
  * @param {string=} displayedUrl - path of the file to use as subtitles for the media
  * @param {string=} subtitles - path of the file to use as subtitles for the media
  * @private
  */
-RCPI.prototype.spawnOk_ = function(media, duration, displayedUrl, subtitles){
+RCPI.prototype.spawnOk_ = function(spawnID, media, duration, displayedUrl, subtitles){
+
+    if (this.checkSpawnID_(spawnID)){
+        return;
+    }
 
     displayedUrl = displayedUrl || media;
 

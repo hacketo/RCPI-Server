@@ -29,9 +29,9 @@ function walk(dir, sub){
 
 function deleteFile(filePath){
     fs.unlink(filePath, (err) => {
-        if (err) throw err;
-        debug('Subtitle file '+filePath+' was deleted');
-    })
+        //if (err) throw err;
+        debug('Subtitle file '+filePath+' was '+(err ? "NOT " : "")+'deleted');
+    });
 }
 
 var EXT_LIST = ['avi', 'mkv', 'mp4', 'm4v'];
@@ -60,13 +60,13 @@ function sec(ms_){
 }
 
 function log(msg){
-    console.log(msg);
+    console.log.apply(console, arguments);
 }
 function error(msg){
-    console.error(msg);
+    console.error.apply(console, arguments);
 }
 function debug(msg){
-    console.log(msg);
+    console.log.apply(console, arguments);
 }
 
 module.exports.walk = walk;
