@@ -205,6 +205,12 @@ RCPI.prototype.spawn_omxplayer = function(media){
     // reset flag
     this.asked_close = false;
 
+    if (media === 'H'){
+        if (this.histo.length){
+            media = this.histo[0].url;
+        }
+    }
+
     // If media starts with / we assume that it's a local path, will be handled by getmediaduration
     if (media.startsWith('/')){
         this.spawn_(spawnID, media);
