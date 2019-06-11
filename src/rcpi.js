@@ -212,11 +212,11 @@ RCPI.prototype.spawn_omxplayer = function(media){
     }
 
     // If media starts with / we assume that it's a local path, will be handled by getmediaduration
-    if (media.startsWith('/')){
+    if (media.indexOf('youtube.') === -1 && media.indexOf('youtu.be') === -1){
         this.spawn_(spawnID, media);
     }
 
-    // Handle Web urls
+    // Handle Youtube Web urls
     else {
         //TODO-tt empty for regular quality
         let args = [];
@@ -227,11 +227,11 @@ RCPI.prototype.spawn_omxplayer = function(media){
             }
 
             // If another spawn was started, no need to do anything here ...
-            if (this.checkSpawnID_(spawnID)){
+            if (this.checkSpawnID_(spawnID)) {
                 return;
             }
 
-            if (!err){
+            if (!err) {
                 //util.debug(info);
 
                 let url = info.url;
@@ -248,8 +248,8 @@ RCPI.prototype.spawn_omxplayer = function(media){
                 if (typeof info._filename === "string") {
                     let subtitleFile = this.computeSrtFilepath_(info, "fr");
 
-                    if (fs.existsSync(subtitleFile)){
-                        util.debug('file already exists : using '+subtitleFile);
+                    if (fs.existsSync(subtitleFile)) {
+                        util.debug('file already exists : using ' + subtitleFile);
                         return this.spawn_(spawnID, url, duration, media, subtitleFile);
                     }
                 }
@@ -276,7 +276,7 @@ RCPI.prototype.spawn_omxplayer = function(media){
                     }
 
                     // If not same spawnID we want to delete any files we could have downloaded
-                    if (this.checkSpawnID_(spawnID)){
+                    if (this.checkSpawnID_(spawnID)) {
                         this.deleteFiles_(files);
                         return;
                     }
@@ -290,16 +290,16 @@ RCPI.prototype.spawn_omxplayer = function(media){
                             let subtitleFile = this.tempDir + '/' + files[0];
 
                             // Start handling the downloaded file (format conversion ..)
-                            this.handleSubtitles(subtitleFile, spawnID).then( (subtitleFile) =>{
+                            this.handleSubtitles(subtitleFile, spawnID).then((subtitleFile) => {
 
-                                if (this.checkSpawnID_(spawnID)){
+                                if (this.checkSpawnID_(spawnID)) {
                                     return Promise.reject();
                                 }
 
                                 // Delete any other downloaded files that we don't need to use for the media
                                 this.deleteFiles_(files, [subtitleFile]);
                                 this.spawn_(spawnID, url, duration, media, subtitleFile);
-                            }).catch( reason =>{
+                            }).catch(reason => {
                                 this.deleteFiles_(files);
                             });
                             return;
