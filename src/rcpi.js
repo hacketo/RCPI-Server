@@ -538,7 +538,7 @@ RCPI.prototype.spawnOk_ = function(spawnID, media, duration, displayedUrl, subti
         });
     }
     else{
-        this.omx_player.newSource(media, 'hdmi', false, this.volume, false, custorm_omx_args);
+        this.omx_player.newSource(media, 'hdmi', false, this.volume, false, custom_omx_args);
     }
 
     // New media should be spawning now, so we might want to update the timeout duration for the connected clients
