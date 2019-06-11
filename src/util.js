@@ -69,6 +69,19 @@ function debug(msg){
     console.log.apply(console, arguments);
 }
 
+function getOmxTime(duration){
+
+    function padTime(i) {
+        if (i < 10) {
+            i = "0" + i;
+        }
+        return i;
+    }
+
+    let d = new Date(duration);
+    return padTime(d.getUTCHours())+":"+padTime(d.getUTCMinutes())+":"+padTime(d.getUTCSeconds());
+}
+
 module.exports.walk = walk;
 module.exports.computePacket = computePacket;
 module.exports.sec = sec;
@@ -78,3 +91,4 @@ module.exports.deleteFile = deleteFile;
 module.exports.log = log;
 module.exports.error = error;
 module.exports.debug = debug;
+module.exports.getOmxTime = getOmxTime;

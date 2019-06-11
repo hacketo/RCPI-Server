@@ -101,6 +101,8 @@ function RCPI(config){
 	this.clients = null;
 
 	this.spawn_id = 0;
+
+	this.histo = [];
 }
 
 /**
@@ -494,15 +496,22 @@ RCPI.prototype.spawnOk_ = function(spawnID, media, duration, displayedUrl, subti
 
     this.currentMediaDuration_ = Math.round(duration * 1000);
 
-    let custorm_omx_args = ['--align','center'];
+    let custom_omx_args = ['--align','center'];
 
     if (subtitles) {
-        custorm_omx_args.push('--subtitles', subtitles);
+        custom_omx_args.push('--subtitles', subtitles);
+    }
+
+    if (this.histo.length){
+        if (this.histo[0].url === displayedUrl){
+            custom_omx_args.push('--pos', this.histo[0].time);
+        }
+        this.histo.length = 0;
     }
 
     // If omx was never initialized create new instance and setup listeners
     if (this.omx_player == null){
-        this.omx_player = Omx(media, 'hdmi', false, this.volume, false, custorm_omx_args);
+        this.omx_player = Omx(media, 'hdmi', false, this.volume, false, custom_omx_args);
 
         this.omx_player.on('error', msg => {
             util.error("error", msg);
@@ -599,6 +608,12 @@ RCPI.prototype.send_to_omx = function(client, key){
                 break;
             case KEYS.QUIT:
                 this.asked_close = true;
+
+                this.histo[0] = {
+                    url: this.mediaPath,
+                    time: util.getOmxTime(this.currentMediaCursor_)
+                };
+
                 this.omx_player.quit();
                 this.isMediaPlaying = false;
                 break;
