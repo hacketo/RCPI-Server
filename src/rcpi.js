@@ -39,11 +39,13 @@ function RCPI(config){
         mediaDirs : ["/media/pi", "/home/pi/Video"],
         downloadDir: "/home/pi/Video",
         tempDir: __dirname+"/../temp",
+        subMaxChar: 45,
     }, config);
 
     this.mediaDirs = config.mediaDirs;
     this.downloadDir = config.downloadDir;
     this.tempDir = config.tempDir;
+    this.subtitlesMaxChar = config.subMaxChar;
 
     /**
      *
@@ -359,6 +361,38 @@ RCPI.prototype.checkSpawnID_ = function(spawnID){
 };
 
 /**
+ * @see https://stackoverflow.com/a/29202760/2538473
+ * @param str
+ * @param size
+ * @returns {string}
+ */
+function subtitleMaxLineLength(str, size) {
+    if (str.length <= size){
+        return str;
+    }
+
+    const numChunks = Math.ceil(str.length / size);
+    const chunks = new Array(numChunks);
+
+    let newSize = 0;
+    for (let i = 0, o = 0; i < numChunks; ++i) {
+        let nextO = str.indexOf(' ', o + size);
+        if (nextO === -1){
+            nextO = str.length;
+        }
+
+        newSize = nextO - o;
+
+        let chunk = str.substr(o, newSize);
+
+        chunks[i] = chunk;
+        o += newSize;
+    }
+
+    return chunks.join('\n');
+}
+
+/**
  *
  * @param {string} subtitleFile
  * @param {number} spawnID
@@ -401,7 +435,16 @@ RCPI.prototype.handleSubtitles = function(subtitleFile, spawnID){
                         resolve(originalFile);
                     }
                     else {
-                        let srtdata = Subtitle.stringify(Subtitle.parse(data));
+
+                        let subData = Subtitle.parse(data);
+
+                        subData.forEach(line => {
+                            if (line.text && line.text.length > 50){
+                                line.text = subtitleMaxLineLength(line.text, this.subtitlesMaxChar);
+                            }
+                        });
+
+                        let srtdata = Subtitle.stringify(subData);
 
                         fs.writeFile(srtFile, srtdata, (err) => {
                             let rValue;
