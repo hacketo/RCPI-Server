@@ -494,7 +494,11 @@ RCPI.prototype.spawnOk_ = function(spawnID, media, duration, displayedUrl, subti
 
     this.currentMediaDuration_ = Math.round(duration * 1000);
 
-    let custorm_omx_args = ['--subtitles', subtitles, '--align','center'];
+    let custorm_omx_args = ['--align','center'];
+
+    if (subtitles) {
+        custorm_omx_args.push('--subtitles', subtitles);
+    }
 
     // If omx was never initialized create new instance and setup listeners
     if (this.omx_player == null){
