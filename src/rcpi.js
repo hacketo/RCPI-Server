@@ -439,7 +439,7 @@ RCPI.prototype.handleSubtitles = function(subtitleFile, spawnID){
                         let subData = Subtitle.parse(data);
 
                         subData.forEach(line => {
-                            if (line.text && line.text.length > 50){
+                            if (line.text && line.text.length > this.subtitlesMaxChar){
                                 line.text = subtitleMaxLineLength(line.text, this.subtitlesMaxChar);
                             }
                         });
