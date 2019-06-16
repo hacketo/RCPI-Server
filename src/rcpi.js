@@ -555,8 +555,10 @@ RCPI.prototype.spawnOk_ = function(spawnID, media, duration, displayedUrl, subti
         if (this.histo[0].url === displayedUrl){
             custom_omx_args.push('--pos', this.histo[0].time);
         }
-        this.histo.length = 0;
     }
+    this.histo[0] = {
+        url: displayedUrl,
+    };
 
     // If omx was never initialized create new instance and setup listeners
     if (this.omx_player == null){
@@ -569,6 +571,12 @@ RCPI.prototype.spawnOk_ = function(spawnID, media, duration, displayedUrl, subti
 
         this.omx_player.on('close', code => {
             util.log("closed", code);
+
+            if (!this.asked_close && this.isMediaPlaying && this.histo[0]) {
+                this.histo[0].time = util.getOmxTime(this.currentMediaCursor_);
+            }
+
+            this.isMediaPlaying = false;
 
             if (!this.asked_close){
                 var i = this.mList.indexOf(this.mediaPath);
@@ -658,10 +666,7 @@ RCPI.prototype.send_to_omx = function(client, key){
             case KEYS.QUIT:
                 this.asked_close = true;
 
-                this.histo[0] = {
-                    url: this.mediaPath,
-                    time: util.getOmxTime(this.currentMediaCursor_)
-                };
+                this.histo[0].time = util.getOmxTime(this.currentMediaCursor_);
 
                 this.omx_player.quit();
                 this.isMediaPlaying = false;
