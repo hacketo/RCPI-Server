@@ -9,21 +9,29 @@ const nutil = require('util');
 
 function MediaModel(url){
     this.url = url || "";
+    this.filename = path.posix.basename(url);
+    this.ext = path.posix.extname(url);
+    this.name = extractMediaName(this);
+    this.episode = null;
+    this.serie = null;
+    this.year = null;
     this.quality = "";
 }
 
 function Media(url){
+
+    /**
+     *
+     * @type {Array<MediaModel>}
+     */
+    this.medias_ = [];
 
     this.setUrl_(url || "");
 
     this.duration = null;
     this.subtitles = [];
 
-    /**
-     *
-     * @type {Array<MediaModel>}
-     */
-    this.medias = [];
+
 }
 
 /**
@@ -38,8 +46,8 @@ Media.prototype.setUrl_ = function(url){
 
     if (url !== this.url) {
         this.url = url;
-        this.filename = path.posix.basename(url);
-        this.ext = path.extname(url);
+        this.media_ = new MediaModel(url);
+        this.medias_[0] = this.media_;
     }
 };
 
@@ -48,10 +56,10 @@ Media.prototype.setUrl_ = function(url){
  * @private
  */
 Media.prototype.resolveMedias = function(){
-    if (!this.medias.length){
-        this.medias = [new MediaModel(this.url)];
+    if (!this.medias_.length){
+        this.medias_[0] = this.media_;
     }
-    return Promise.resolve(this.medias);
+    return Promise.resolve(this.medias_);
 };
 
 /**
@@ -123,7 +131,7 @@ nutil.inherits(WebMedia, Media);
  * @private
  */
 WebMedia.prototype.resolveMedias = function(formats_preference){
-    if (!this.medias.length){
+    if (!this.medias_.length){
 
         return new Promise((resolve, reject) =>{
             //TODO-tt empty for regular quality
@@ -144,12 +152,13 @@ WebMedia.prototype.resolveMedias = function(formats_preference){
                 // Duration of the media in ms
                 this.duration = info._duration_raw;
 
-                this.medias = this.sortFormats(formats_preference, info.formats, info.format);
-                resolve(this.medias);
+                //TODO convert to mediaModel
+                this.medias_ = this.sortFormats(formats_preference, info.formats, info.format);
+                resolve(this.medias_);
             });
         });
     }
-    return Promise.resolve(this.medias);
+    return Promise.resolve(this.medias_);
 };
 
 const EXT_PREF = [
@@ -435,6 +444,50 @@ WebMedia.prototype.next = function(){
 WebMedia.prototype.previous = function(){
     return null;
 };
+
+
+const common_after_name = ["\\bFRENCH\\b","\\b1080p\\b", "\\bVOSTFR\\b", "\\b720p\\b", "\\bMULTI\\b", "@", "\\bHDRip\\b", "\\bVFF\\b", "\\bHDLight\\b", "\\bFR\\b", "\\bEN\\b","\\bBluRay\\b", "\\(", "\\["];
+const FILENAME_ENDS_REG = new RegExp(common_after_name.join('|'), 'i');
+let IS_EPISODE_REG = /S([0-9]{1,2}).{0,5}?E([0-9]{1,3})/i;
+
+function extractMediaName(media){
+
+    let fileName = media.filename;
+
+    let match = IS_EPISODE_REG.exec(fileName);
+
+    if (match){
+        media.serie = +match[1] || 0;
+        media.episode = +match[2] || 0;
+    }
+
+    media.ext = path.posix.extname(fileName);
+
+    let res = FILENAME_ENDS_REG.exec(fileName);
+
+    let iof = res && res.index || fileName.length - media.ext.length;
+
+    let filename_part = fileName.slice(0, iof);
+
+    // split on one/many dots or one/many spaces
+    let data = filename_part.split(/\.|\s+/);
+
+    let iOfDate = data.length;
+
+    // Check if name contains a date (not at start index) usually comes after the name
+    data.forEach( (word, index) => {
+        if (index > 0 && +word === +word && word.length === 4){
+            iOfDate = index;
+            media.year = word;
+            return false;
+        }
+    });
+    // remove the date part of the name
+    let mediaName = data.slice(0, iOfDate).join(' ');
+
+    media.path = fileName;
+    media.name = mediaName;
+}
 
 module.exports.Media = Media;
 module.exports.WebMedia = WebMedia;
