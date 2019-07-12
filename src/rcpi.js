@@ -451,21 +451,15 @@ RCPI.prototype.handleSubtitles = function(subtitleFile, spawnID){
 
                         let subData = Subtitle.parse(data);
 
-                        // subData.forEach(line => {
-                        //
-                        //     if (line.text){
-                        //
-                        //         let lines = line.text.split(/\n/);
-                        //
-                        //         lines.forEach((line, index) => {
-                        //             if (line.text && line.text.length > this.subtitlesMaxChar){
-                        //                 line.text = subtitleMaxLineLength(line.text, this.subtitlesMaxChar);
-                        //             }
-                        //         });
-                        //
-                        //         line.text = lines.join('\n');
-                        //     }
-                        // });
+                        if (data.indexOf('<00:') === -1) {
+
+                            subData.forEach(line => {
+                                if (line.text && line.text.length > this.subtitlesMaxChar) {
+                                    line.text = subtitleMaxLineLength(line.text, this.subtitlesMaxChar);
+                                }
+                            });
+
+                        }
 
                         let srtdata = Subtitle.stringify(subData);
 
