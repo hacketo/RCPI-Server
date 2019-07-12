@@ -568,9 +568,12 @@ RCPI.prototype.spawnOk_ = function(spawnID, media, duration, displayedUrl, subti
         custom_omx_args.push('--subtitles', subtitles);
     }
 
+    let cursorTime = 0;
+
     if (this.histo.length){
         if (this.histo[0].url === displayedUrl){
-            custom_omx_args.push('--pos', this.histo[0].time);
+            custom_omx_args.push('--pos', util.getOmxTime(this.histo[0].time));
+            cursorTime = this.histo[0].time || 0;
         }
     }
     this.histo[0] = {
@@ -590,7 +593,7 @@ RCPI.prototype.spawnOk_ = function(spawnID, media, duration, displayedUrl, subti
             util.log("closed", code);
 
             if (!this.asked_close && this.isMediaPlaying && this.histo[0]) {
-                this.histo[0].time = util.getOmxTime(this.currentMediaCursor_);
+                this.histo[0].time = this.currentMediaCursor_;
             }
 
             this.isMediaPlaying = false;
@@ -614,7 +617,7 @@ RCPI.prototype.spawnOk_ = function(spawnID, media, duration, displayedUrl, subti
     this.clients.update_timeout(this.currentMediaDuration_);
 
     this.mediaPath = displayedUrl;
-    this.resetMediaCursor();
+    this.resetMediaCursor(cursorTime);
     this.sendInfos();
 };
 
@@ -683,7 +686,7 @@ RCPI.prototype.send_to_omx = function(client, key){
             case KEYS.QUIT:
                 this.asked_close = true;
 
-                this.histo[0].time = util.getOmxTime(this.currentMediaCursor_);
+                this.histo[0].time = this.currentMediaCursor_;
 
                 this.omx_player.quit();
                 this.isMediaPlaying = false;
@@ -725,8 +728,8 @@ RCPI.prototype.broadcast = function(action, data){
 	this.clients.broadcast(action, data);
 };
 
-RCPI.prototype.resetMediaCursor = function(){
-    this.currentMediaCursor_ = 0;
+RCPI.prototype.resetMediaCursor = function(cursorTime){
+    this.currentMediaCursor_ = cursorTime || 0;
     this.isMediaPlaying = true;
     this.lastCheck_ = +new Date();
 };
