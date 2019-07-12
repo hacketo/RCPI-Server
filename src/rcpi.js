@@ -367,29 +367,42 @@ RCPI.prototype.checkSpawnID_ = function(spawnID){
  * @returns {string}
  */
 function subtitleMaxLineLength(str, size) {
+
     if (str.length <= size){
         return str;
     }
 
-    const numChunks = Math.ceil(str.length / size);
-    const chunks = new Array(numChunks);
+    let lines = str.split(/\n/);
 
-    let newSize = 0;
-    for (let i = 0, o = 0; i < numChunks; ++i) {
-        let nextO = str.indexOf(' ', o + size);
-        if (nextO === -1){
-            nextO = str.length;
+    for (let i = 0, len = lines.length ; i < len ; i++){
+        if (lines[i].length <= this.subtitlesMaxChar){
+            continue;
         }
 
-        newSize = nextO - o;
+        let str = lines[i];
 
-        let chunk = str.substr(o, newSize);
+        const numChunks = Math.ceil(str.length / size);
+        const chunks = new Array(numChunks);
 
-        chunks[i] = chunk;
-        o += newSize;
+        let newSize = 0;
+        for (let i = 0, o = 0; i < numChunks; ++i) {
+            let nextO = str.indexOf(' ', o + size);
+            if (nextO === -1){
+                nextO = str.length;
+            }
+
+            newSize = nextO - o;
+
+            let chunk = str.substr(o, newSize);
+
+            chunks[i] = chunk;
+            o += newSize;
+        }
+
+        lines[i] = chunks.join('\n');
     }
 
-    return chunks.join('\n');
+    return lines.join('\n');
 }
 
 /**
@@ -438,11 +451,21 @@ RCPI.prototype.handleSubtitles = function(subtitleFile, spawnID){
 
                         let subData = Subtitle.parse(data);
 
-                        subData.forEach(line => {
-                            if (line.text && line.text.length > this.subtitlesMaxChar){
-                                line.text = subtitleMaxLineLength(line.text, this.subtitlesMaxChar);
-                            }
-                        });
+                        // subData.forEach(line => {
+                        //
+                        //     if (line.text){
+                        //
+                        //         let lines = line.text.split(/\n/);
+                        //
+                        //         lines.forEach((line, index) => {
+                        //             if (line.text && line.text.length > this.subtitlesMaxChar){
+                        //                 line.text = subtitleMaxLineLength(line.text, this.subtitlesMaxChar);
+                        //             }
+                        //         });
+                        //
+                        //         line.text = lines.join('\n');
+                        //     }
+                        // });
 
                         let srtdata = Subtitle.stringify(subData);
 
