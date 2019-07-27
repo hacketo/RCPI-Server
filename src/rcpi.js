@@ -382,7 +382,7 @@ function subtitleMaxLineLength(str, size) {
         let str = lines[i];
 
         const numChunks = Math.ceil(str.length / size);
-        const chunks = new Array(numChunks);
+        const chunks = [];
 
         let newSize = 0;
         for (let i = 0, o = 0; i < numChunks; ++i) {
@@ -390,8 +390,15 @@ function subtitleMaxLineLength(str, size) {
             if (nextO === -1){
                 nextO = str.length;
             }
+            else{
+                nextO += 1;
+            }
 
-            newSize = nextO - o;
+            newSize = nextO - o - 1;
+
+            if (newSize === 0){
+                continue;
+            }
 
             let chunk = str.substr(o, newSize);
 
