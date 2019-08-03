@@ -47,6 +47,7 @@ function RCPI(config){
     this.tempDir = config.tempDir;
     this.subtitlesMaxChar = config.subMaxChar;
 
+    this.subtitlesEnabled = false;
     /**
      *
      * @type {EventEmitter}
@@ -135,12 +136,12 @@ RCPI.prototype.onLIST = function(client){
 };
 
 
-RCPI.prototype.onOPEN = function(client, path){
+RCPI.prototype.onOPEN = function(client, path, ask_subtitles){
     if (!path){
         util.log('no path specified');
         return;
     }
-    this.spawn_omxplayer(path);
+    this.spawn_omxplayer(path, ask_subtitles);
 };
 
 
@@ -198,14 +199,17 @@ const SRT_EXT = ".srt";
 /**
  *
  * @param {string} media - url of the media file used for the omx instance source
+ * @param {boolean} ask_subtitles
  */
-RCPI.prototype.spawn_omxplayer = function(media){
+RCPI.prototype.spawn_omxplayer = function(media, ask_subtitles){
 
     // Increment spawn id counter
     let spawnID = ++this.spawn_id;
 
     // reset flag
     this.asked_close = false;
+
+    this.subtitlesEnabled = ask_subtitles;
 
     if (media === 'H'){
         if (this.histo.length){
@@ -242,9 +246,10 @@ RCPI.prototype.spawn_omxplayer = function(media){
                 let duration = info._duration_raw;
 
                 // Only handle subtitles for youtube videos
-                if (info.extractor !== 'youtube') {
+                if (!ask_subtitles || info.extractor !== 'youtube') {
                     return this.spawn_(spawnID, url, duration);
                 }
+
 
                 // Check for a possible cached subtitles file
                 if (typeof info._filename === "string") {
@@ -518,10 +523,14 @@ RCPI.prototype.spawnOk_ = function(spawnID, media, duration, displayedUrl, subti
 
     this.currentMediaDuration_ = Math.round(duration * 1000);
 
-    let custom_omx_args = ['--align','center'];
+    let custom_omx_args = [];
 
     if (subtitles) {
-        custom_omx_args.push('--subtitles', subtitles);
+        custom_omx_args.push('--align','center','--subtitles', subtitles);
+        this.subtitlesEnabled = true;
+    }
+    else{
+        this.subtitlesEnabled = false;
     }
 
     let cursorTime = 0;
@@ -558,10 +567,12 @@ RCPI.prototype.spawnOk_ = function(spawnID, media, duration, displayedUrl, subti
                 var i = this.mList.indexOf(this.mediaPath);
                 if (i > -1 && this.mList[i+1]){
                     if (getFilmName(this.mList[i+1]).startsWith(getFilmName(this.mediaPath).substr(0,8))){
-                        this.spawn_omxplayer(this.mList[i+1]);
+                        this.spawn_omxplayer(this.mList[i+1], this.subtitlesEnabled);
+                        return;
                     }
                 }
             }
+            this.subtitlesEnabled = false;
         });
     }
     else{
@@ -625,6 +636,7 @@ RCPI.prototype.send_to_omx = function(client, key){
                 this.omx_player.volDown();
                 break;
             case KEYS.SUBTITLE_TOGGLE:
+                this.subtitlesEnabled = !this.subtitlesEnabled;
                 this.omx_player.subtitles();
                 break;
             case KEYS.SUBTITLE_TRACK_NEXT:
@@ -662,12 +674,14 @@ RCPI.prototype.get_play_packet = function(){
         this.currentMediaCursor_,
         this.isMediaPlaying,
         this.currentMediaDuration_,
-	    this.mediaPath
+	    this.mediaPath,
+      this.subtitlesEnabled
     ];
 };
 RCPI.prototype.get_cursor_packet = function(){
     return [
-        this.currentMediaCursor_
+        this.currentMediaCursor_,
+        this.subtitlesEnabled
     ];
 };
 

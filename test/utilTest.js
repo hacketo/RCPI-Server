@@ -26,13 +26,19 @@ describe('subtitleMaxLineLength', function(){
 
     subtitles = "Coucou c'est moi en fait, j'ai pris la confiture labas et puis sa et sa car c'est super bon et blablabla bablabla";
     result= subtitleMaxLineLength(subtitles, splitsize);
-  console.log(result);
     expect(result.match(/\n/g).length).to.equal(1);
     expect(result).to.equal("Coucou c'est moi en fait, j'ai pris la confiture labas\net puis sa et sa car c'est super bon et blablabla bablabla");
 
-    subtitles = "Coucou c'est moi en fait, j'ai pris la confiture labas et puis sa et sa car c'est super bon et blablabla bablabla";
-
+    subtitles = "Coucou c'est moi en fait, j'ai pris la confiturefhdjkfdhjk labas et puis sa et sa car c'est super bon et blablabla bablabla";
     result = subtitleMaxLineLength(subtitles, splitsize);
+
+    // First end of char will overlap max char to not split on word
+    expect(result.indexOf('\n',0)).to.equal(58);
+
+    expect(result.match(/\n/g).length).to.equal(2);
+    expect(result).to.equal("Coucou c'est moi en fait, j'ai pris la confiturefhdjkfdhjk\nlabas et puis sa et sa car c'est super bon et blablabla\nbablabla");
+
+    console.log(result);
   });
 
 });
