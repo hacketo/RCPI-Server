@@ -82,6 +82,59 @@ function getOmxTime(duration){
     return padTime(d.getUTCHours())+":"+padTime(d.getUTCMinutes())+":"+padTime(d.getUTCSeconds());
 }
 
+/**
+ * @see https://stackoverflow.com/a/29202760/2538473
+ * @param str
+ * @param size
+ * @returns {string}
+ */
+function subtitleMaxLineLength(str, size) {
+
+    if (str.length <= size){
+        return str;
+    }
+
+    let lines = str.split(/\n/);
+
+    for (let i = 0, len = lines.length ; i < len ; i++){
+        if (lines[i].length <= size){
+            continue;
+        }
+
+        let str = lines[i];
+
+        const numChunks = Math.ceil(str.length / size);
+        const chunks = [];
+
+        let newSize = 0;
+        for (let i = 0, o = 0; i < numChunks; ++i) {
+            let nextO = str.indexOf(' ', o + size);
+            if (nextO === -1){
+                nextO = str.length;
+                newSize = nextO - o;
+            }
+            else{
+                nextO += 1;
+                newSize = nextO - o - 1;
+            }
+
+            if (newSize <= 0){
+                continue;
+            }
+
+            let chunk = str.substr(o, newSize);
+
+
+            chunks[i] = chunk;
+            o += newSize + 1;
+        }
+
+        lines[i] = chunks.join('\n');
+    }
+
+    return lines.join('\n');
+}
+
 module.exports.walk = walk;
 module.exports.computePacket = computePacket;
 module.exports.sec = sec;
@@ -92,3 +145,4 @@ module.exports.log = log;
 module.exports.error = error;
 module.exports.debug = debug;
 module.exports.getOmxTime = getOmxTime;
+module.exports.subtitleMaxLineLength = subtitleMaxLineLength;

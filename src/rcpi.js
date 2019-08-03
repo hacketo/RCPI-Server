@@ -39,7 +39,7 @@ function RCPI(config){
         mediaDirs : ["/media/pi", "/home/pi/Video"],
         downloadDir: "/home/pi/Video",
         tempDir: __dirname+"/../temp",
-        subMaxChar: 45,
+        subMaxChar: 50,
     }, config);
 
     this.mediaDirs = config.mediaDirs;
@@ -360,57 +360,6 @@ RCPI.prototype.checkSpawnID_ = function(spawnID){
     return spawnID !== this.spawn_id;
 };
 
-/**
- * @see https://stackoverflow.com/a/29202760/2538473
- * @param str
- * @param size
- * @returns {string}
- */
-function subtitleMaxLineLength(str, size) {
-
-    if (str.length <= size){
-        return str;
-    }
-
-    let lines = str.split(/\n/);
-
-    for (let i = 0, len = lines.length ; i < len ; i++){
-        if (lines[i].length <= this.subtitlesMaxChar){
-            continue;
-        }
-
-        let str = lines[i];
-
-        const numChunks = Math.ceil(str.length / size);
-        const chunks = [];
-
-        let newSize = 0;
-        for (let i = 0, o = 0; i < numChunks; ++i) {
-            let nextO = str.indexOf(' ', o + size);
-            if (nextO === -1){
-                nextO = str.length;
-            }
-            else{
-                nextO += 1;
-            }
-
-            newSize = nextO - o - 1;
-
-            if (newSize === 0){
-                continue;
-            }
-
-            let chunk = str.substr(o, newSize);
-
-            chunks[i] = chunk;
-            o += newSize;
-        }
-
-        lines[i] = chunks.join('\n');
-    }
-
-    return lines.join('\n');
-}
 
 /**
  *
@@ -462,7 +411,7 @@ RCPI.prototype.handleSubtitles = function(subtitleFile, spawnID){
 
                             subData.forEach(line => {
                                 if (line.text && line.text.length > this.subtitlesMaxChar) {
-                                    line.text = subtitleMaxLineLength(line.text, this.subtitlesMaxChar);
+                                    line.text = util.subtitleMaxLineLength(line.text, this.subtitlesMaxChar);
                                 }
                             });
 
