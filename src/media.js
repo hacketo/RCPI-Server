@@ -1,65 +1,185 @@
 const getvideoduration = require('get-video-duration');
-const fs = require('fs'),
-    util = require('./util'),
-    path = require('path'),
-    youtubedl = require('youtube-dl');
+const fs = require('fs');
+const util = require('./util');
+const path = require('path');
+const youtubedl = require('youtube-dl');
 const Subtitle = require('subtitle');
 
 const nutil = require('util');
 
+/**
+ *
+ * @param url
+ * @property {string} url
+ * @property {string} filename
+ * @property {string} ext
+ * @property {string} name
+ * @property {string} episode
+ * @property {string} serie
+ * @property {string} year
+ * @property {string} quality
+ * @property {string} format
+ * @constructor
+ */
 function MediaModel(url){
-    this.url = url || "";
-    this.filename = path.posix.basename(url);
-    this.ext = path.posix.extname(url);
-    this.name = extractMediaName(this);
-    this.episode = null;
-    this.serie = null;
-    this.year = null;
-    this.quality = "";
+  this.url = url || '';
+  this.filename = path.posix.basename(url);
+  this.ext = path.posix.extname(url);
+  this.quality = '';
+  this.format = '';
 }
 
+/**
+ * @param {object} formats
+ * @return {MediaModel|undefined}
+ */
+MediaModel.fromYTFormat = function(formats){
+  let r = [];
+  for (let i = 0, len = formats.length; i < len; i++) {
+    const format = formats[i];
+    let url = format.url;
+
+    if (!url){
+      console.error('cant create model');
+      return;
+    }
+
+    let mediaModel = new MediaModel(url);
+
+    // Override ext, FIXME-hacketo good idea ??
+    mediaModel.ext = '.' + format.ext;
+
+    mediaModel.format = format.format;
+    mediaModel.quality = format.quality;
+    r.push(mediaModel);
+  }
+
+  return r;
+
+};
+
+
+/**
+ *
+ * @param {string} url
+ *
+ * @property {string} url
+ * @property {?number} duration
+ * @property {Array} subtitles
+ * @property {string} name
+ * @property {string} episode
+ * @property {string} serie
+ * @property {string} year
+ * @class
+ * @constructor
+ */
 function Media(url){
 
     /**
      *
      * @type {Array<MediaModel>}
      */
-    this.medias_ = [];
+  this.medias_ = [];
 
-    this.setUrl_(url || "");
+  /**
+   * Main mediamodel for that media
+   * @type {?MediaModel}
+   * @private
+   */
+  this.media_ = null;
 
-    this.duration = null;
-    this.subtitles = [];
+  this.duration = null;
+  this.subtitles = [];
 
+  this.name = null;
 
+  this.episode = null;
+  this.serie = null;
+  this.year = null;
+
+  this.setUrl_(url || '');
 }
 
 /**
+ * @const
+ * @type {boolean}
+ */
+Media.deleteVTT = true;
+Media.tempDir = `${__dirname }/../temp/`;
+
+const common_after_name = ['\\bFRENCH\\b', '\\b1080p\\b', '\\bVOSTFR\\b', '\\b720p\\b', '\\bMULTI\\b', '@', '\\bHDRip\\b', '\\bVFF\\b', '\\bHDLight\\b', '\\bFR\\b', '\\bEN\\b', '\\bBluRay\\b', '\\(', '\\['];
+const FILENAME_ENDS_REG = new RegExp(common_after_name.join('|'), 'i');
+const IS_EPISODE_REG = /S([0-9]{1,2}).{0,5}?E([0-9]{1,3})/i;
+/**
  * Update the url of the media, and the ext
  * @param {string} url
- * @private
+ * @protected
  */
 Media.prototype.setUrl_ = function(url){
-    if (typeof url !== "string"){
-        throw new Error('url should be a string');
-    }
+  if (typeof url !== 'string'){
+    throw new Error('url should be a string');
+  }
 
-    if (url !== this.url) {
-        this.url = url;
-        this.media_ = new MediaModel(url);
-        this.medias_[0] = this.media_;
-    }
+  if (url !== this.url) {
+    this.url = url;
+    this.media_ = new MediaModel(url);
+
+    this.extractMediaName(this.media_);
+
+  }
 };
+
+/**
+ * Update current info about the main media
+ * @param {MediaModel} mediaModel
+ */
+Media.prototype.extractMediaName = function(mediaModel){
+
+  const fileName = mediaModel.filename;
+
+  const match = IS_EPISODE_REG.exec(fileName);
+
+  if (match){
+    this.serie = +match[1] || 0;
+    this.episode = +match[2] || 0;
+  }
+
+  let ext = path.posix.extname(fileName);
+
+  const res = FILENAME_ENDS_REG.exec(fileName);
+
+  const iof = res && res.index || fileName.length - ext.length;
+
+  const filename_part = fileName.slice(0, iof);
+
+  // split on one/many dots or one/many spaces
+  const data = filename_part.split(/\.|\s+/);
+
+  let iOfDate = data.length;
+
+  // Check if name contains a date (not at start index) usually comes after the name
+  data.forEach((word, index) => {
+    if (index > 0 && +word === +word && word.length === 4){
+      iOfDate = index;
+      this.year = word;
+      return false;
+    }
+  });
+  // remove the date part of the name
+  const mediaName = data.slice(0, iOfDate).join(' ');
+
+  this.name = mediaName;
+}
 
 /**
  * Update the url of the media, and the ext
  * @private
  */
 Media.prototype.resolveMedias = function(){
-    if (!this.medias_.length){
-        this.medias_[0] = this.media_;
-    }
-    return Promise.resolve(this.medias_);
+  if (!this.medias_.length){
+    this.medias_[0] = this.media_;
+  }
+  return Promise.resolve(this.medias_);
 };
 
 /**
@@ -67,31 +187,31 @@ Media.prototype.resolveMedias = function(){
  * @returns {Promise<number>|Promise<any | never>}
  */
 Media.prototype.resolveDuration = function(){
-    if (this.duration != null){
-        return Promise.resolve(this.duration);
-    }
+  if (this.duration != null){
+    return Promise.resolve(this.duration);
+  }
 
-    if (!this.url.length){
-        return Promise.reject('no media url provided');
-    }
+  if (!this.url.length){
+    return Promise.reject('no media url provided');
+  }
 
-    return getvideoduration(this.url).then((duration) => {
-        this.duration = duration;
-        return this.duration;
-        // if (this.checkSpawnID_(spawnID)){
-        //     return Promise.reject("another spawn instance started");
-        // }
+  return getvideoduration(this.url).then((duration) => {
+    this.duration = duration;
+    return this.duration;
+    // if (this.checkSpawnID_(spawnID)){
+    //     return Promise.reject("another spawn instance started");
+    // }
 
-        // this.spawnOk_(spawnID, media, duration, displayedUrl, subtitles);
-    }, (error) => {
-        util.error(this.url, error);
-        this.duration = null;
-        throw new Error(error);
-    });
+    // this.spawnOk_(spawnID, media, duration, displayedUrl, subtitles);
+  }, (error) => {
+    util.error(this.url, error);
+    this.duration = null;
+    throw new Error(error);
+  });
 };
 
 
-const tempDir = __dirname + "../temp/";
+
 
 /**
  * Check if a file with the same name but SRT ext exists near by the media file
@@ -99,70 +219,87 @@ const tempDir = __dirname + "../temp/";
  * @returns {Promise<Array<string>>}
  */
 Media.prototype.resolveSubtitles = function(preferedLang){
-    if (fs.existsSync(tempDir+this.filename+SRT_EXT)){
-        this.subtitles = [this.filename+SRT_EXT];
-    }
-    else{
-        this.subtitles = [];
-    }
-    return Promise.resolve(this.subtitles)
+  if (fs.existsSync(Media.tempDir + this.filename + SRT_EXT)){
+    this.subtitles = [this.filename + SRT_EXT];
+  }
+  else {
+    this.subtitles = [];
+  }
+  return Promise.resolve(this.subtitles);
 };
 
 
 Media.prototype.next = function(){
-    return null;
+  return null;
 };
 
 
 Media.prototype.previous = function(){
-    return null;
+  return null;
 };
 
 
-
+/**
+ *
+ * @param {string} url
+ * @class
+ * @extends Media
+ * @constructor
+ */
 function WebMedia(url){
-    Media.call(this, url);
+  Media.call(this, url);
 }
 nutil.inherits(WebMedia, Media);
 
 /**
  * Update the url of the media, and the ext
+ * @param {string} url
+ * @protected
+ */
+WebMedia.prototype.setUrl_ = function(url){
+  Media.prototype.setUrl_.apply(this, arguments);
+
+
+};
+
+/**
+ * Update the list of available media
  * @parem {Array<string>} formats_preference
  * @private
  */
 WebMedia.prototype.resolveMedias = function(formats_preference){
-    if (!this.medias_.length){
+  if (!this.medias_.length ){
 
-        return new Promise((resolve, reject) =>{
-            //TODO-tt empty for regular quality
-            let args = [];
-            youtubedl.getInfo(this.url, args, (err, info) => {
+    return new Promise((resolve, reject) => {
+      //TODO-tt empty for regular quality
+      const args = [];
+      youtubedl.getInfo(this.url, args, (err, info) => {
 
-                if (err) {
-                    util.error(err);
-                    return reject(err);
-                }
+        if (err) {
+          util.error(err);
+          return reject(err);
+        }
 
-                // If another spawn was started, no need to do anything here ...
-                // if (this.checkSpawnID_(spawnID)) {
-                //     return;
-                // }
+        // If another spawn was started, no need to do anything here ...
+        // if (this.checkSpawnID_(spawnID)) {
+        //     return;
+        // }
 
-                //util.debug(info);
-                // Duration of the media in ms
-                this.duration = info._duration_raw;
+        //util.debug(info);
+        // Duration of the media in ms
+        this.duration = info._duration_raw;
 
-                //TODO convert to mediaModel
-                this.medias_ = this.sortFormats(formats_preference, info.formats, info.format);
-                resolve(this.medias_);
-            });
-        });
-    }
-    return Promise.resolve(this.medias_);
+        //TODO convert to mediaModel
+        this.medias_ = MediaModel.fromYTFormat(this.sortFormats_(formats_preference, info.formats, info.format));
+        resolve(this.medias_);
+      });
+    });
+  }
+  return Promise.resolve(this.medias_);
 };
 
 const EXT_PREF = [
-    "mp4"
+  'mp4',
 ];
 
 /**
@@ -172,28 +309,46 @@ const EXT_PREF = [
  * @param {string} mainFormat
  * @returns {Array}
  */
-WebMedia.prototype.sortFormats = function(formats_preference, formats, mainFormat){
+WebMedia.prototype.sortFormats_ = function(formats_preference, formats, mainFormat){
 
-    let pref = formats_preference.slice();
-    if (!pref.includes(mainFormat)) {
-        pref.push(mainFormat);
+  const pref = formats_preference.slice();
+  if (!pref.includes(mainFormat)) {
+    pref.push(mainFormat);
+  }
+
+  const formatList = [];
+
+  formats.forEach(format => {
+    const iOf = pref.indexOf(format.format);
+    if (iOf > 0){
+      format.__cValue = iOf;
+      formatList.push(format);
     }
+  });
 
-    let formatList = [];
+  formatList.sort((f1, f2) => {
+    return f1.__cValue - f2.__cValue;
+  });
 
-    formats.forEach(format => {
-        let iOf = pref.indexOf(format.format);
-        if (iOf > 0){
-            format.__cValue = iOf;
-            formatList.push(format);
-        }
-    });
+  return formatList;
+};
 
-    formatList.sort((f1, f2) => {
-        return f1.__cValue - f2.__cValue;
-    });
+/**
+ *
+ *
+ * @param {Array<string>} formats_preference
+ * @param {Array<object>} formats
+ * @param {string} mainFormat
+ * @returns {Array}
+ */
+WebMedia.prototype.toMediaModels_ = function(formatList){
+  let r = []
+  for (let i = 0, len = formatList.length; i < len; i++) {
+    r.push(new MediaModel(formatList.url, ))
+  }
 
-    return formatList;
+
+
 };
 
 /**
@@ -201,41 +356,41 @@ WebMedia.prototype.sortFormats = function(formats_preference, formats, mainForma
  * @returns {Promise<number>|Promise<any | never>}
  */
 WebMedia.prototype.resolveDuration = function(){
-    if (this.duration != null){
-        return Promise.resolve(this.duration);
-    }
+  if (this.duration != null){
+    return Promise.resolve(this.duration);
+  }
 
-    if (!this.url.length){
-        return Promise.reject('no media url provided');
-    }
+  if (!this.url.length){
+    return Promise.reject('no media url provided');
+  }
 
-    return new Promise((resolve, reject) =>{
+  return new Promise((resolve, reject) => {
         //TODO-tt empty for regular quality
-        let args = [];
-        youtubedl.getInfo(media, args, (err, info) => {
+    const args = [];
+    youtubedl.getInfo(media, args, (err, info) => {
 
-            if (err) {
-                util.error(err);
-            }
+      if (err) {
+        util.error(err);
+      }
 
-            // If another spawn was started, no need to do anything here ...
-            if (this.checkSpawnID_(spawnID)) {
-                return;
-            }
+      // If another spawn was started, no need to do anything here ...
+      if (this.checkSpawnID_(spawnID)) {
+        return;
+      }
 
-            if (!err) {
-                //util.debug(info);
+      if (!err) {
+      //util.debug(info);
 
-                this.media = info.url;
+        this.media = info.url;
 
-                // Duration of the media in ms
-                this.duration = info._duration_raw;
-            }
-        });
+        // Duration of the media in ms
+        this.duration = info._duration_raw;
+      }
     });
+  });
 };
 
-const SRT_EXT = ".srt";
+const SRT_EXT = '.srt';
 
 /**
  * Check if a file with the same name but SRT ext exists near by the media file
@@ -243,66 +398,75 @@ const SRT_EXT = ".srt";
  * @returns {Promise<Array<string>>}
  */
 WebMedia.prototype.resolveSubtitles = function(preferedLang){
-    if (fs.existsSync(tempDir+this.filename+preferedLang+SRT_EXT)){
-        this.subtitles = [this.filename+preferedLang+SRT_EXT];
-        return Promise.resolve(this.subtitles);
-    }
 
-    return this.listAvailableSubtitles(preferedLang).then((data) => {
+  const tempDir = Media.tempDir;
 
-        return new Promise((resolve, reject)=>{
+  if (fs.existsSync(tempDir + this.filename + preferedLang + SRT_EXT)){
+    this.subtitles = [this.filename + preferedLang + SRT_EXT];
+    return Promise.resolve(this.subtitles);
+  }
 
-            let dlSubs = !!data.subtitles.length || !!data.auto.length;
+  return this.listAvailableSubtitles(preferedLang).then((data) => {
 
-            if (dlSubs) {
-                let auto = !data.subtitles.length;
+    return new Promise((resolve, reject) => {
 
-                let options = {
-                    // Write automatic subtitle file (youtube only)
-                    auto: auto,
-                    // Downloads all the available subtitles.
-                    all: false,
-                    // Subtitle format. YouTube generated subtitles
-                    // are available ttml or vtt.
-                    format: 'srt',
-                    // Languages of subtitles to download, separated by commas.
-                    lang: preferedLang,
-                    // The directory to save the downloaded files in.
-                    cwd: tempDir,
-                };
+      const dlSubs = !!data.subtitles.length || !!data.auto.length;
 
-                youtubedl.getSubs(this.url, options, (err, files) => {
-                    if (err) {
-                        util.error(err);
-                        util.deleteFiles(files);
-                        return reject();
-                    }
+      if (dlSubs) {
+        const auto = !data.subtitles.length;
 
-                    // In case we have at least one subtitle in the 'files' list
-                    if (files && typeof files[0] === "string") {
+        const options = {
+          // Write automatic subtitle file (youtube only)
+          auto: auto,
+          // Downloads all the available subtitles.
+          all: false,
+          // Subtitle format. YouTube generated subtitles
+          // are available ttml or vtt.
+          format: 'srt',
+          // Languages of subtitles to download, separated by commas.
+          lang: auto && data.auto[0] || data.subtitles[0],
+          // The directory to save the downloaded files in.
+          cwd: tempDir,
+        };
 
-                        util.debug("Downloaded sutitles : ", files);
+        youtubedl.getSubs(this.url, options, (err, files) => {
+          if (err) {
+            util.error(err);
+            util.deleteFiles(tempDir, files);
+            return reject(err);
+          }
 
-                        let subtitleFile = tempDir + '/' + files[0];
+          // In case we have at least one subtitle in the 'files' list
+          if (files && typeof files[0] === 'string') {
 
-                        // Start handling the downloaded file (format conversion ..)
+            util.debug('Downloaded sutitles : ', files);
 
-                        return resolve(this.handleSubtitles(subtitleFile).then((subtitleFile) => {
+            const subtitleFile = `${tempDir }${ files[0]}`;
 
-                            // Delete any other downloaded files that we don't need to use for the media
-                            util.deleteFiles(files, [subtitleFile]);
-                            return subtitleFile;
-                        }).catch(reason => {
-                            util.deleteFiles(files);
-                        }));
-                    }
-                    resolve([]);
-                });
-                return;
-            }
-            resolve([]);
+            // Start handling the downloaded file (format conversion ..)
+
+            resolve(this.handleSubtitles(subtitleFile).then((subtitleFile) => {
+
+              // Delete any other downloaded files that we don't need to use for the media
+              if (Media.deleteVTT) {
+                util.deleteFiles(tempDir, files, [subtitleFile]);
+              }
+              return subtitleFile;
+            }).catch(reason => {
+              util.deleteFiles(tempDir, files);
+            }));
+          }
+
+          // no subtitles
+          resolve([]);
         });
+        return;
+      }
+
+      // No subs available
+      resolve([]);
     });
+  });
 };
 
 /**
@@ -311,50 +475,51 @@ WebMedia.prototype.resolveSubtitles = function(preferedLang){
  */
 WebMedia.prototype.listAvailableSubtitles = function(preferedLang){
 
-    return new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
 
-        youtubedl.exec(this.url, ['--list-subs'], {}, (err, output) => {
-            if (err) {
-                return reject(err);
-            }
+    youtubedl.exec(this.url, ['--list-subs'], {}, (err, output) => {
+      if (err) {
+        reject(err);
+        return;
+      }
             // console.log(output.join('\n'));
 
-            let rValue = {
-                auto: [],
-                subtitles: []
-            };
+      const rValue = {
+        auto: [],
+        subtitles: [],
+      };
 
-            let state = 0;
-            output.forEach(line => {
-                if (line){
-                    if (line.startsWith('Available automatic captions')){
-                        state = 1;
-                    }
-                    if (line.startsWith('Available subtitles')){
-                        state = 2;
-                    }
-                    if (state === 1){
-                        if (line.startsWith(preferedLang)){
-                            if (line.indexOf('vtt') > -1){
-                                rValue.auto.push(preferedLang);
-                            }
-                        }
-                    }
-                    if (state === 2){
-                        if (line.startsWith(preferedLang)){
-                            if (line.indexOf('vtt') > -1){
-                                rValue.subtitles.push(preferedLang);
-                            }
-                        }
-                    }
-                }
-            });
-            resolve(rValue);
-        });
+      let state = 0;
+      output.forEach(line => {
+        if (line){
+          if (line.startsWith('Available automatic captions')){
+            state = 1;
+          }
+          if (line.startsWith('Available subtitles')){
+            state = 2;
+          }
+          if (state === 1){
+            if (line.startsWith(preferedLang)){
+              if (line.indexOf('vtt') > -1){
+                rValue.auto.push(preferedLang);
+              }
+            }
+          }
+          if (state === 2){
+            if (line.startsWith(preferedLang)){
+              if (line.indexOf('vtt') > -1){
+                rValue.subtitles.push(preferedLang);
+              }
+            }
+          }
+        }
+      });
+      resolve(rValue);
     });
+  });
 };
 
-const VTT_EXT = ".vtt";
+const VTT_EXT = '.vtt';
 
 /**
  *
@@ -364,130 +529,102 @@ const VTT_EXT = ".vtt";
  */
 WebMedia.prototype.handleSubtitles = function(subtitleFile){
 
-    return new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
 
-        util.debug("Subtitles "+subtitleFile);
+    util.debug(`Subtitles ${subtitleFile}`);
 
-        if (subtitleFile.endsWith(VTT_EXT)) {
-            let originalFile = subtitleFile;
-            let srtFile = originalFile.slice(0, originalFile.length - VTT_EXT.length) + SRT_EXT;
+    if (subtitleFile.endsWith(VTT_EXT)) {
+      const originalFile = subtitleFile;
+      const srtFile = originalFile.slice(0, originalFile.length - VTT_EXT.length) + SRT_EXT;
 
             // Will use already cached file
-            if (fs.existsSync(srtFile)) {
-                util.deleteFile(originalFile);
-                subtitleFile = srtFile;
-                resolve(srtFile);
-            }
-            else{
-                fs.readFile(originalFile, 'utf8', (err, data) => {
-                    util.deleteFile(originalFile);
+      if (fs.existsSync(srtFile)) {
+        if (Media.deleteVTT) {
+          util.deleteFile(originalFile);
+        }
+        subtitleFile = srtFile;
+        resolve(srtFile);
+      }
+      else {
+        fs.readFile(originalFile, 'utf8', (err, data) => {
+          if (Media.deleteVTT) {
+            util.deleteFile(originalFile);
+          }
 
-                    if (err) {
-                        util.error(err);
-                    }
+          if (err) {
+            util.error(err);
+          }
 
-                    if (err) {
+          if (err) {
                         // Here originalFile will not have a valid format and will be deleted after if not already
-                        resolve(originalFile);
-                    }
-                    else {
-                        let srtdata = Subtitle.stringify(Subtitle.parse(data));
+            resolve(originalFile);
+          }
+          else {
+            const subData = Subtitle.parse(data);
 
-                        fs.writeFile(srtFile, srtdata, (err) => {
-                            let rValue;
-                            if (err) {
-                                util.error(err);
-                                util.deleteFile(srtFile);
-                            }
-                            else {
-                                util.debug('The file has been saved! : '+srtFile);
-                                rValue = srtFile;
-                            }
+            if (data.indexOf('<00:') === -1) {
 
-                            resolve(rValue);
-                        });
-                    }
-                });
-            }
-        }
-        else {
-            // Here subtitleFile will not have a valid format and will be deleted after if not already
-            resolve(subtitleFile);
-        }
-    })
-        .then (subtitleFile => {
-
-            if (this.checkSpawnID_(spawnID)){
-                return Promise.reject();
-            }
-
-            if (subtitleFile) {
-                if (!subtitleFile.endsWith(SRT_EXT)) {
-                    util.deleteFile(subtitleFile);
-                    subtitleFile = null;
+              subData.forEach(line => {
+                if (line.text && line.text.length > this.subtitlesMaxChar) {
+                  line.text = util.subtitleMaxLineLength(line.text, this.subtitlesMaxChar);
                 }
+              });
+
             }
 
-            if (subtitleFile) {
-                util.log('SUBTITLES: '+ subtitleFile);
-            }
+            const srtdata = Subtitle.stringify(subData);
 
-            return subtitleFile;
+            fs.writeFile(srtFile, srtdata, (err) => {
+              let rValue;
+              if (err) {
+                util.error(err);
+                util.deleteFile(srtFile);
+              }
+              else {
+                util.debug(`The file has been saved! : ${srtFile}`);
+                rValue = srtFile;
+              }
+
+              resolve(rValue);
+            });
+          }
         });
+      }
+    }
+    else {
+            // Here subtitleFile will not have a valid format and will be deleted after if not already
+      resolve(subtitleFile);
+    }
+  })
+  .then(subtitleFile => {
+
+    if (subtitleFile) {
+      if (!subtitleFile.endsWith(SRT_EXT)) {
+        util.deleteFile(subtitleFile);
+        subtitleFile = null;
+      }
+    }
+
+    if (subtitleFile) {
+      util.log(`SUBTITLES: ${ subtitleFile}`);
+      this.subtitles.push(subtitleFile);
+    }
+
+    return subtitleFile;
+  });
 };
 
 WebMedia.prototype.next = function(){
-    return null;
+  return null;
 };
 
 
 WebMedia.prototype.previous = function(){
-    return null;
+  return null;
 };
 
 
-const common_after_name = ["\\bFRENCH\\b","\\b1080p\\b", "\\bVOSTFR\\b", "\\b720p\\b", "\\bMULTI\\b", "@", "\\bHDRip\\b", "\\bVFF\\b", "\\bHDLight\\b", "\\bFR\\b", "\\bEN\\b","\\bBluRay\\b", "\\(", "\\["];
-const FILENAME_ENDS_REG = new RegExp(common_after_name.join('|'), 'i');
-let IS_EPISODE_REG = /S([0-9]{1,2}).{0,5}?E([0-9]{1,3})/i;
 
-function extractMediaName(media){
-
-    let fileName = media.filename;
-
-    let match = IS_EPISODE_REG.exec(fileName);
-
-    if (match){
-        media.serie = +match[1] || 0;
-        media.episode = +match[2] || 0;
-    }
-
-    media.ext = path.posix.extname(fileName);
-
-    let res = FILENAME_ENDS_REG.exec(fileName);
-
-    let iof = res && res.index || fileName.length - media.ext.length;
-
-    let filename_part = fileName.slice(0, iof);
-
-    // split on one/many dots or one/many spaces
-    let data = filename_part.split(/\.|\s+/);
-
-    let iOfDate = data.length;
-
-    // Check if name contains a date (not at start index) usually comes after the name
-    data.forEach( (word, index) => {
-        if (index > 0 && +word === +word && word.length === 4){
-            iOfDate = index;
-            media.year = word;
-            return false;
-        }
-    });
-    // remove the date part of the name
-    let mediaName = data.slice(0, iOfDate).join(' ');
-
-    media.path = fileName;
-    media.name = mediaName;
-}
 
 module.exports.Media = Media;
 module.exports.WebMedia = WebMedia;

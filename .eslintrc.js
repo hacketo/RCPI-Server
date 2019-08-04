@@ -23,6 +23,7 @@ module.exports = {
         "brace-style": "off",
         "spaced-comment": "off",
         "no-inner-declarations": "off",
-        "consistent-return": "off"
+        "consistent-return": "off",
+        "prefer-template": "off"
     }
 };

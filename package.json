@@ -16,6 +16,8 @@
     "eslint": "^6.1.0",
     "eslint-config-closure-es6": "^0.1.1",
     "mocha": "^5.2.0",
+    "sinon": "^7.4.0",
+    "sinon-chai": "^3.3.0",
     "ws": "git://github.com/hacketo/ws.git#ba3c1267e6cddf1a580e7b42bc1643da6f5c418a"
   },
   "author": {

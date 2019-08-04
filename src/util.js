@@ -36,17 +36,18 @@ function deleteFile(filePath){
 
 /**
  * Delete a set of files that are not in the excepts list
+ * @param {string} dir - dir path
  * @param {Array<string>} files - files path
  * @param {Array<string>=} excepts - list of files to exclude from the file list
  */
-function deleteFiles(files, excepts){
+function deleteFiles(dir, files, excepts){
   excepts = excepts || [];
   if (Array.isArray(files)){
     files.forEach(file => {
       if (file){
-        file = this.tempDir + '/' + file;
+        file = dir + file;
         if (!excepts.includes(file)){
-          util.deleteFile(file);
+          deleteFile(file);
         }
       }
     });
