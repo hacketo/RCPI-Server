@@ -143,9 +143,10 @@ describe('WebMedia', function(){
   beforeEach(function(){
     media = new WebMedia(url);
 
-    // propertyReplacer.replace(WebMedia.prototype, 'getInfo__', (url, args, options) => {
-    //   options(null, MockInfos);
-    // });
+    propertyReplacer.replace(WebMedia.prototype, 'getInfo__', (url, args, options) => {
+      options(null, MockInfos);
+    });
+
     // propertyReplacer.replace(WebMedia.prototype, 'getSubs__', (url, args, options) => {
     //   options(null, MockSubs);
     // });
@@ -183,10 +184,20 @@ describe('WebMedia', function(){
       });
     });
 
-
-
     it('Should resolve subtitles', function(){
       this.timeout(10000);
+
+      return media.resolveSubtitles('fr').then(() => {
+        expect(media.subtitles.length, 'should have a media in the list').to.equal(1);
+      });
+    });
+
+    it('Should resolve subtitles MOCKED', function(){
+      this.timeout(10000);
+
+      propertyReplacer.replace(WebMedia.prototype, 'getSubs__', (url, args, options) => {
+        options(null, MockSubs);
+      });
 
       return media.resolveSubtitles('fr').then(() => {
         expect(media.subtitles.length, 'should have a media in the list').to.equal(1);

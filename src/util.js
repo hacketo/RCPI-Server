@@ -27,10 +27,42 @@ function walk(dir, sub){
   return results;
 }
 
-function deleteFile(filePath){
-  fs.unlink(filePath, (err) => {
-    //if (err) throw err;
-    debug(`Subtitle file ${filePath} was ${err ? 'NOT ' : ''}deleted`);
+
+
+/**
+ * read a file from its path
+ * @param {string} filePath
+ * @return {Promise<string>}
+ */
+function readFile(filePath){
+  return new Promise((resolve, reject) => {
+    fs.readFile(filePath, 'utf8', (err, data) => {
+      if (err){
+        reject(err);
+      }
+      else {
+        resolve(data);
+      }
+    });
+  });
+}
+
+/**
+ * write in a n utf-8 file from its path
+ * @param {string} filePath
+ * @param {string} fileData
+ * @return {Promise<string>} - resolved with filePath
+ */
+function writeFile(filePath, fileData){
+  return new Promise((resolve, reject) => {
+    fs.writeFile(filePath, fileData, (err) => {
+      if (err){
+        reject(err);
+      }
+      else {
+        resolve(filePath);
+      }
+    });
   });
 }
 
@@ -39,19 +71,53 @@ function deleteFile(filePath){
  * @param {string} dir - dir path
  * @param {Array<string>} files - files path
  * @param {Array<string>=} excepts - list of files to exclude from the file list
+ * @return {Promise<Array<string>>}
  */
 function deleteFiles(dir, files, excepts){
   excepts = excepts || [];
+
+  const promises = [];
+
   if (Array.isArray(files)){
     files.forEach(file => {
       if (file){
         file = dir + file;
         if (!excepts.includes(file)){
-          deleteFile(file);
+          promises.push(deleteFile(file));
         }
       }
     });
   }
+
+  return Promise.all(promises);
+}
+
+/**
+ * Delete a file from its path
+ * @param {string} filePath
+ * @return {Promise<string>}
+ */
+function deleteFile(filePath){
+  return new Promise((resolve, reject) => {
+    fs.unlink(filePath, (err) => {
+      //if (err) throw err;
+      debug(`Subtitle file ${filePath} was ${err ? 'NOT ' : ''}deleted`);
+      if (err){
+        reject(err);
+      }
+      else {
+        resolve(filePath);
+      }
+    });
+  });
+}
+/**
+ * check if a file exists
+ * @param {string} filePath
+ * @return {boolean}
+ */
+function existsSync(filePath){
+  return fs.existsSync(filePath);
 }
 
 const EXT_LIST = ['avi', 'mkv', 'mp4', 'm4v'];
@@ -159,6 +225,9 @@ module.exports.walk = walk;
 module.exports.computePacket = computePacket;
 module.exports.sec = sec;
 
+module.exports.existsSync = existsSync;
+module.exports.readFile = readFile;
+module.exports.writeFile = writeFile;
 module.exports.deleteFile = deleteFile;
 module.exports.deleteFiles = deleteFiles;
 

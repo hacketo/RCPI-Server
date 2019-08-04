@@ -99,6 +99,7 @@ function Media(url){
   this.name = null;
 
   this.episode = null;
+  this.season = null;
   this.serie = null;
   this.year = null;
 
@@ -149,7 +150,7 @@ Media.prototype.extractMediaName = function(mediaModel){
   const match = IS_EPISODE_REG.exec(fileName);
 
   if (match){
-    this.serie = +match[1] || 0;
+    this.season = +match[1] || 0;
     this.episode = +match[2] || 0;
   }
 
@@ -635,57 +636,46 @@ WebMedia.prototype.convertSubtitleFileIfNeeded__ = function(subtitleFile){
       const srtFile = originalFile.slice(0, originalFile.length - VTT_EXT.length) + SRT_EXT;
 
       // Will use already cached file
-      if (fs.existsSync(srtFile)) {
+      if (util.existsSync(srtFile)) {
         if (Media.deleteVTT) {
           util.deleteFile(originalFile);
         }
 
         subtitleFile = srtFile;
-        return resolve(srtFile);
+        resolve(srtFile);
+        return;
       }
-      else {
-        fs.readFile(originalFile, 'utf8', (err, data) => {
+
+      resolve( util.readFile(originalFile)
+        .then(data => {
           if (Media.deleteVTT) {
             util.deleteFile(originalFile);
           }
 
-          if (err) {
-            util.error(err);
-
-            // Here originalFile will not have a valid format and will be deleted after if not already
-            resolve(originalFile);
-          }
-          else {
-            const subData = Subtitle.parse(data);
-
-            if (data.indexOf('<00:') === -1) {
-
-              subData.forEach(line => {
-                if (line.text && line.text.length > this.subtitlesMaxChar) {
-                  line.text = util.subtitleMaxLineLength(line.text, this.subtitlesMaxChar);
-                }
-              });
-
-            }
-
-            const srtdata = Subtitle.stringify(subData);
-
-            fs.writeFile(srtFile, srtdata, (err) => {
-              let rValue;
-              if (err) {
-                util.error(err);
-                util.deleteFile(srtFile);
+          const subData = Subtitle.parse(data);
+          if (data.indexOf('<00:') === -1) {
+            subData.forEach(line => {
+              if (line.text && line.text.length > this.subtitlesMaxChar) {
+                line.text = util.subtitleMaxLineLength(line.text, this.subtitlesMaxChar);
               }
-              else {
-                util.debug(`The file has been saved! : ${srtFile}`);
-                rValue = srtFile;
-              }
-
-              resolve(rValue);
             });
           }
-        });
-      }
+
+          const srtdata = Subtitle.stringify(subData);
+
+          return util.writeFile(srtFile, srtdata)
+            .catch(err => {
+              util.error(err);
+              util.deleteFile(srtFile);
+            });
+
+        }).catch( (err) => {
+          util.error(err);
+
+          // Here originalFile will not have a valid format and will be deleted after if not already
+          return originalFile;
+        })
+      );
       return;
     }
 
