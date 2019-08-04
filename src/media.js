@@ -48,7 +48,6 @@ MediaModel.fromYTFormat = function(formats){
 
     // Override ext, FIXME-hacketo good idea ??
     mediaModel.ext = '.' + format.ext;
-
     mediaModel.format = format.format;
     mediaModel.quality = format.quality;
     r.push(mediaModel);
@@ -61,33 +60,39 @@ MediaModel.fromYTFormat = function(formats){
 
 /**
  *
- * @param {string} url
+ * Class to handle a media
  *
- * @property {string} url
- * @property {?number} duration
- * @property {Array} subtitles
- * @property {string} name
- * @property {string} episode
- * @property {string} serie
- * @property {string} year
+ * @param {string} url - url to retrieve the media from
+ *
+ * @property {string} url - url of the media
+ * @property {?number} duration - duration of the media in ms
+ * @property {Array} subtitles - list of file available to usefor subtitles
+ * @property {string} name - name of the media (human readable)
+ * @property {string} filename - name of the media file
+ * @property {string} episode - episode number if from a serie
+ * @property {string} season - serie name
+ * @property {string} serie - serie name
+ * @property {string} year - year of production if any
  * @class
  * @constructor
  */
 function Media(url){
 
-    /**
-     *
-     * @type {Array<MediaModel>}
-     */
+  /**
+   * contain the list of media files available
+   * @type {Array<MediaModel>}
+   * @protected
+   */
   this.medias_ = [];
 
   /**
    * Main mediamodel for that media
    * @type {?MediaModel}
-   * @private
+   * @protected
    */
   this.media_ = null;
 
+  this.filename = null;
   this.duration = null;
   this.subtitles = [];
 
@@ -98,6 +103,8 @@ function Media(url){
   this.year = null;
 
   this.setUrl_(url || '');
+
+  this.extractMediaName(this.media_);
 }
 
 /**
@@ -107,9 +114,8 @@ function Media(url){
 Media.deleteVTT = true;
 Media.tempDir = `${__dirname }/../temp/`;
 
-const common_after_name = ['\\bFRENCH\\b', '\\b1080p\\b', '\\bVOSTFR\\b', '\\b720p\\b', '\\bMULTI\\b', '@', '\\bHDRip\\b', '\\bVFF\\b', '\\bHDLight\\b', '\\bFR\\b', '\\bEN\\b', '\\bBluRay\\b', '\\(', '\\['];
-const FILENAME_ENDS_REG = new RegExp(common_after_name.join('|'), 'i');
-const IS_EPISODE_REG = /S([0-9]{1,2}).{0,5}?E([0-9]{1,3})/i;
+
+
 /**
  * Update the url of the media, and the ext
  * @param {string} url
@@ -124,11 +130,14 @@ Media.prototype.setUrl_ = function(url){
     this.url = url;
     this.media_ = new MediaModel(url);
 
-    this.extractMediaName(this.media_);
-
+    this.filename = this.media_.filename;
   }
 };
 
+
+const common_after_name = ['\\bFRENCH\\b', '\\b1080p\\b', '\\bVOSTFR\\b', '\\b720p\\b', '\\bMULTI\\b', '@', '\\bHDRip\\b', '\\bVFF\\b', '\\bHDLight\\b', '\\bFR\\b', '\\bEN\\b', '\\bBluRay\\b', '\\(', '\\['];
+const FILENAME_ENDS_REG = new RegExp(common_after_name.join('|'), 'i');
+const IS_EPISODE_REG = /S([0-9]{1,2}).{0,5}?E([0-9]{1,3})/i;
 /**
  * Update current info about the main media
  * @param {MediaModel} mediaModel
@@ -183,6 +192,21 @@ Media.prototype.resolveMedias = function(){
 };
 
 /**
+ * Mock for local video duration
+ * Returns a promise that will be resolved with duration of given video, as a
+ * float.
+ *
+ * @param  {Stream|String} input Stream or URL or path to file to be used as
+ * input for ffprobe.
+ *
+ * @return {Promise} Promise that will be resolved with given video duration, as
+ * a float.
+ */
+Media.prototype.getvideoduration__ = function(input){
+  return getvideoduration.apply(getvideoduration, arguments);
+};
+
+/**
  * Try to resolve the duration for the media
  * @returns {Promise<number>|Promise<any | never>}
  */
@@ -195,7 +219,7 @@ Media.prototype.resolveDuration = function(){
     return Promise.reject('no media url provided');
   }
 
-  return getvideoduration(this.url).then((duration) => {
+  return this.getvideoduration__(this.url).then((duration) => {
     this.duration = duration;
     return this.duration;
     // if (this.checkSpawnID_(spawnID)){
@@ -251,6 +275,47 @@ function WebMedia(url){
 }
 nutil.inherits(WebMedia, Media);
 
+
+/**
+ * {@see youtubedl.getInfo}
+ * Gets info from a video.
+ *
+ * @param {String} url
+ * @param {Array.<String>} args
+ * @param {Object} options
+ * @param {function(!Error, Object)} cb
+ */
+WebMedia.prototype.getInfo__ = function(url, args, options, cb){
+  return youtubedl.getInfo.apply(youtubedl, arguments);
+};
+/**
+ * {@see youtubedl.getSubs}
+ * @param {String} url
+ * @param {Object} options
+ *   {Boolean} auto
+ *   {Boolean} all
+ *   {String} lang
+ *   {String} format
+ *   {String} cwd
+ * @param {function(!Error, Object)} cb
+ */
+WebMedia.prototype.getSubs__ = function(url, options, cb){
+  return youtubedl.getSubs.apply(youtubedl, arguments);
+};
+/**
+ * {@see youtubedl.exec}
+ * Calls youtube-dl with some arguments and the `cb`
+ * gets called with the output.
+ *
+ * @param {string} url
+ * @param {Array.<String>} args
+ * @param {Object} options
+ * @param {function(!Error, string)} cb
+ */
+WebMedia.prototype.exec__ = function(url, args, options, cb){
+  return youtubedl.exec.apply(youtubedl, arguments);
+};
+
 /**
  * Update the url of the media, and the ext
  * @param {string} url
@@ -258,8 +323,6 @@ nutil.inherits(WebMedia, Media);
  */
 WebMedia.prototype.setUrl_ = function(url){
   Media.prototype.setUrl_.apply(this, arguments);
-
-
 };
 
 /**
@@ -273,7 +336,7 @@ WebMedia.prototype.resolveMedias = function(formats_preference){
     return new Promise((resolve, reject) => {
       //TODO-tt empty for regular quality
       const args = [];
-      youtubedl.getInfo(this.url, args, (err, info) => {
+      this.getInfo__(this.url, args, (err, info) => {
 
         if (err) {
           util.error(err);
@@ -289,10 +352,17 @@ WebMedia.prototype.resolveMedias = function(formats_preference){
         // Duration of the media in ms
         this.duration = info._duration_raw;
 
+        this.filename = info._filename.slice(0, info._filename.length - info.ext.length - 1);
+
         //TODO convert to mediaModel
         this.medias_ = MediaModel.fromYTFormat(this.sortFormats_(formats_preference, info.formats, info.format));
         resolve(this.medias_);
       });
+    }).then( () => {
+      if (this.medias_.length > 0){
+        this.media_ = this.medias_[0];
+        this.extractMediaName(this.media_);
+      }
     });
   }
   return Promise.resolve(this.medias_);
@@ -367,7 +437,7 @@ WebMedia.prototype.resolveDuration = function(){
   return new Promise((resolve, reject) => {
         //TODO-tt empty for regular quality
     const args = [];
-    youtubedl.getInfo(media, args, (err, info) => {
+    this.getInfo__(media, args, (err, info) => {
 
       if (err) {
         util.error(err);
@@ -429,7 +499,7 @@ WebMedia.prototype.resolveSubtitles = function(preferedLang){
           cwd: tempDir,
         };
 
-        youtubedl.getSubs(this.url, options, (err, files) => {
+        this.getSubs__(this.url, options, (err, files) => {
           if (err) {
             util.error(err);
             util.deleteFiles(tempDir, files);
@@ -477,7 +547,7 @@ WebMedia.prototype.listAvailableSubtitles = function(preferedLang){
 
   return new Promise((resolve, reject) => {
 
-    youtubedl.exec(this.url, ['--list-subs'], {}, (err, output) => {
+    this.exec__(this.url, ['--list-subs'], {}, (err, output) => {
       if (err) {
         reject(err);
         return;
@@ -524,12 +594,39 @@ const VTT_EXT = '.vtt';
 /**
  *
  * @param {string} subtitleFile
- * @param {number} spawnID
  * @returns {Promise<void|string>}
  */
 WebMedia.prototype.handleSubtitles = function(subtitleFile){
 
-  return new Promise((resolve, reject) => {
+  return this.convertSubtitleFileIfNeeded__(subtitleFile)
+  .then(subtitleFile => {
+
+    if (subtitleFile) {
+      if (!subtitleFile.endsWith(SRT_EXT)) {
+        if (Media.deleteVTT) {
+          util.deleteFile(subtitleFile);
+        }
+        subtitleFile = null;
+      }
+    }
+
+    if (subtitleFile) {
+      util.log(`SUBTITLES: ${ subtitleFile}`);
+      this.subtitles.push(subtitleFile);
+    }
+
+    return subtitleFile;
+  });
+};
+
+/**
+ *
+ * @param {string} subtitleFile
+ * @returns {Promise<void|string>}
+ */
+WebMedia.prototype.convertSubtitleFileIfNeeded__ = function(subtitleFile){
+
+  return new Promise( (resolve, reject) => {
 
     util.debug(`Subtitles ${subtitleFile}`);
 
@@ -537,13 +634,14 @@ WebMedia.prototype.handleSubtitles = function(subtitleFile){
       const originalFile = subtitleFile;
       const srtFile = originalFile.slice(0, originalFile.length - VTT_EXT.length) + SRT_EXT;
 
-            // Will use already cached file
+      // Will use already cached file
       if (fs.existsSync(srtFile)) {
         if (Media.deleteVTT) {
           util.deleteFile(originalFile);
         }
+
         subtitleFile = srtFile;
-        resolve(srtFile);
+        return resolve(srtFile);
       }
       else {
         fs.readFile(originalFile, 'utf8', (err, data) => {
@@ -553,10 +651,8 @@ WebMedia.prototype.handleSubtitles = function(subtitleFile){
 
           if (err) {
             util.error(err);
-          }
 
-          if (err) {
-                        // Here originalFile will not have a valid format and will be deleted after if not already
+            // Here originalFile will not have a valid format and will be deleted after if not already
             resolve(originalFile);
           }
           else {
@@ -590,28 +686,12 @@ WebMedia.prototype.handleSubtitles = function(subtitleFile){
           }
         });
       }
+      return;
     }
-    else {
-            // Here subtitleFile will not have a valid format and will be deleted after if not already
-      resolve(subtitleFile);
-    }
+
+    // Here subtitleFile will not have a valid format and will be deleted after if not already
+    resolve(subtitleFile);
   })
-  .then(subtitleFile => {
-
-    if (subtitleFile) {
-      if (!subtitleFile.endsWith(SRT_EXT)) {
-        util.deleteFile(subtitleFile);
-        subtitleFile = null;
-      }
-    }
-
-    if (subtitleFile) {
-      util.log(`SUBTITLES: ${ subtitleFile}`);
-      this.subtitles.push(subtitleFile);
-    }
-
-    return subtitleFile;
-  });
 };
 
 WebMedia.prototype.next = function(){
@@ -626,5 +706,6 @@ WebMedia.prototype.previous = function(){
 
 
 
+module.exports.MediaModel = MediaModel;
 module.exports.Media = Media;
 module.exports.WebMedia = WebMedia;
