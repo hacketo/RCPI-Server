@@ -1,10 +1,13 @@
 module.exports = {
     "env": {
         "node": true,
+        "mocha": true,
+        "chai": true,
         "es6": true
     },
     "extends": [
-        "eslint:recommended"
+        "eslint:recommended",
+        "eslint-config-closure-es6"
     ],
     "globals": {
         "Atomics": "readonly",

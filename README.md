@@ -47,7 +47,7 @@ The udp packets are constructed with messagepack
 KEY | CODE | OPT_DATA | Comment
 --- | --- | --- | ---
 PING | 0 | | ask current informations about the player
-OPEN | 1 | uri | Url of the media
+OPEN | 1 | uri ; subtitleEnabled | Url of the media
 PLAY | 2 | | 
 LIST | 3 | media_list | list of available medias [@see #LIST](#list)
 FINFOS | 4 | player_infos | the current informations of the player [@see #PING](#ping)

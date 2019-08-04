@@ -2,110 +2,110 @@
  * Created by hacketo on 25/05/18.
  */
 
-const fs = require('fs'),
-    util = require('./util'),
-    youtubedl = require('youtube-dl'),
-    getvideoduration = require('get-video-duration'),
-    UDPServer = require('./udp').UDPServer,
-    WSServer = require('./websockets').WSServer,
-    KEYS = require('./keys').KEYS,
-    Clients = require('./clients').Clients;
+const fs = require('fs');
+const util = require('./util');
+const youtubedl = require('youtube-dl');
+const getvideoduration = require('get-video-duration');
+const UDPServer = require('./udp').UDPServer;
+const WSServer = require('./websockets').WSServer;
+const KEYS = require('./keys').KEYS;
+const Clients = require('./clients').Clients;
 const exec = require('child_process').exec;
 const Subtitle = require('subtitle');
 
 let Omx = require('./mock.js');
 
 exec('command -v omxplayer', function(err, stdout) {
-    if (err || stdout.length === 0) {
-        util.log('/!\\ MOCK : OMX NOT INSTALLED /!\\');
-    }
-    else{
-        Omx = require('node-omxplayer');
-    }
+  if (err || stdout.length === 0) {
+    util.log('/!\\ MOCK : OMX NOT INSTALLED /!\\');
+  }
+  else {
+    Omx = require('node-omxplayer');
+  }
 });
 
 /**
  * @name RCPI
  * @class
- * @param config
+ * @param {object} config
  * @constructor
  */
 function RCPI(config){
 
-    config = Object.assign({
-        use_ws : false,
-        udp_port : 9878,
-        ws_port : 9877,
-        mediaDirs : ["/media/pi", "/home/pi/Video"],
-        downloadDir: "/home/pi/Video",
-        tempDir: __dirname+"/../temp",
-        subMaxChar: 50,
-    }, config);
+  config = Object.assign({
+    use_ws: false,
+    udp_port: 9878,
+    ws_port: 9877,
+    mediaDirs: ['/media/pi', '/home/pi/Video'],
+    downloadDir: '/home/pi/Video',
+    tempDir: `${__dirname}/../temp`,
+    subMaxChar: 50,
+  }, config);
 
-    this.mediaDirs = config.mediaDirs;
-    this.downloadDir = config.downloadDir;
-    this.tempDir = config.tempDir;
-    this.subtitlesMaxChar = config.subMaxChar;
+  this.mediaDirs = config.mediaDirs;
+  this.downloadDir = config.downloadDir;
+  this.tempDir = config.tempDir;
+  this.subtitlesMaxChar = config.subMaxChar;
 
-    this.subtitlesEnabled = false;
+  this.subtitlesEnabled = false;
     /**
      *
      * @type {EventEmitter}
      */
-    this.omx_player = null;
-    this.udpServer = null;
-    this.wsServer = null;
+  this.omx_player = null;
+  this.udpServer = null;
+  this.wsServer = null;
 
-    this.mediaPath = "";
-    this.volume = -600;
+  this.mediaPath = '';
+  this.volume = -600;
 
-    /**
-     * Time in milliseconds
-     * @type {number}
-     * @private
-     */
-    this.currentMediaDuration_ = -1;
+  /**
+   * Time in milliseconds
+   * @type {number}
+   * @private
+   */
+  this.currentMediaDuration_ = -1;
 
-    /**
-     * Time in milliseconds
-     * @type {number}
-     * @private
-     */
-    this.currentMediaCursor_ = 0;
-    /**
-     * Time in milliseconds
-     * @type {number}
-     * @private
-     */
-    this.lastCheck_ = 0;
-    this.isMediaPlaying = false;
+  /**
+   * Time in milliseconds
+   * @type {number}
+   * @private
+   */
+  this.currentMediaCursor_ = 0;
+  /**
+   * Time in milliseconds
+   * @type {number}
+   * @private
+   */
+  this.lastCheck_ = 0;
+  this.isMediaPlaying = false;
 
-    this.use_ws = config.use_ws;
-    this.udp_port = config.udp_port;
-    this.ws_port = config.ws_port;
+  this.use_ws = config.use_ws;
+  this.udp_port = config.udp_port;
+  this.ws_port = config.ws_port;
 
-	/**
-	 * true if a client asked the omx player to close
-	 * @type {boolean}
-	 */
-	this.asked_close = false;
+  /**
+   * true if a client asked the omx player to close
+   * @type {boolean}
+   */
+  this.asked_close = false;
 
-	/**
-	 * Liste of media availables
-	 * @type {Array<string>}
-	 */
-	this.mList = [];
-    this.mediaEnded = false;
+  /**
+   * Liste of media availables
+   * @type {Array<string>}
+   */
+  this.mList = [];
+  this.mediaEnded = false;
 
-	/**
-	 *
-	 * @type {Clients}
-	 */
-	this.clients = null;
+  /**
+   *
+   * @type {Clients}
+   */
+  this.clients = null;
 
-	this.spawn_id = 0;
+  this.spawn_id = 0;
 
-	this.histo = [];
+  this.histo = [];
 }
 
 /**
@@ -113,88 +113,88 @@ function RCPI(config){
  */
 RCPI.prototype.init = function(){
 
-	this.clients = new Clients();
+  this.clients = new Clients();
 
-    this.udpServer = new UDPServer(this.clients, this.udp_port);
-    this.udpServer.init(this);
-    if (this.use_ws){
-        this.wsServer = new WSServer(this.clients, this.ws_port);
-        this.wsServer.init(this);
-    }
+  this.udpServer = new UDPServer(this.clients, this.udp_port);
+  this.udpServer.init(this);
+  if (this.use_ws){
+    this.wsServer = new WSServer(this.clients, this.ws_port);
+    this.wsServer.init(this);
+  }
 
-    this.get_available_media();
+  this.get_available_media();
 };
 
 RCPI.prototype.onPING = function(client){
-    this.updateMediaCursor();
-    client.send(KEYS.FINFOS, this.get_play_packet());
+  this.updateMediaCursor();
+  client.send(KEYS.FINFOS, this.get_play_packet());
 };
 
 
 RCPI.prototype.onLIST = function(client){
-    client.send(KEYS.LIST, this.get_available_media());
+  client.send(KEYS.LIST, this.get_available_media());
 };
 
 
 RCPI.prototype.onOPEN = function(client, path, ask_subtitles){
-    if (!path){
-        util.log('no path specified');
-        return;
-    }
-    this.spawn_omxplayer(path, ask_subtitles);
+  if (!path){
+    util.log('no path specified');
+    return;
+  }
+  this.spawn_omxplayer(path, ask_subtitles);
 };
 
 
 RCPI.prototype.onDEBUG = function(client, cmd){
-    if (!cmd){
-        util.log('no cmd specified');
-        return;
-    }
-    
-    if (cmd === 'sub'){
-        if(this.sub_debug(client)){
+  if (!cmd){
+    util.log('no cmd specified');
+    return;
+  }
 
-        }
-        else{
-            
-        }
-    }
-    
-    if (cmd === 'unsub'){
-        if(this.unsub_debug(client)){
-            
-        }
-        else{
+  if (cmd === 'sub'){
+    if (this.sub_debug(client)){
 
-        }
     }
+    else {
+
+    }
+  }
+
+  if (cmd === 'unsub'){
+    if (this.unsub_debug(client)){
+
+    }
+    else {
+
+    }
+  }
 };
 
 /**
  * Browse this.mediaDirs to get a list of media
- * @returns {*}
+ * @return {*}
  */
 RCPI.prototype.get_available_media = function(){
-    var l = [];
-    this.mediaDirs.forEach(function(i){
-        try {
+  let l = [];
+  this.mediaDirs.forEach(function(i){
+    try {
             if (fs.existsSync(i)) {
-                l = l.concat(util.walk(i));
+              l = l.concat(util.walk(i));
             }
-        }catch(e){
+        } catch (e){
 
         }
-    });
-    if (l.length > 0){
-        this.mList = l;
-        return l;
-    }
-    return RCPI.MOCK_MEDIALIST;
+  });
+  if (l.length > 0){
+    this.mList = l;
+    return l;
+  }
+  return RCPI.MOCK_MEDIALIST;
 };
-RCPI.MOCK_MEDIALIST = ["/a","/b"];
+RCPI.MOCK_MEDIALIST = ['/a', '/b'];
 
-const VTT_EXT = ".vtt";
-const SRT_EXT = ".srt";
+const VTT_EXT = '.vtt';
+const SRT_EXT = '.srt';
 
 /**
  *
@@ -203,123 +203,123 @@ const SRT_EXT = ".srt";
  */
 RCPI.prototype.spawn_omxplayer = function(media, ask_subtitles){
 
-    // Increment spawn id counter
-    let spawnID = ++this.spawn_id;
+  // Increment spawn id counter
+  const spawnID = ++this.spawn_id;
 
-    // reset flag
-    this.asked_close = false;
+  // reset flag
+  this.asked_close = false;
 
-    this.subtitlesEnabled = ask_subtitles;
+  this.subtitlesEnabled = ask_subtitles;
 
-    if (media === 'H'){
-        if (this.histo.length){
-            media = this.histo[0].url;
-        }
+  if (media === 'H'){
+    if (this.histo.length){
+      media = this.histo[0].url;
     }
+  }
 
-    // If media starts with / we assume that it's a local path, will be handled by getmediaduration
-    if (media.indexOf('youtube.') === -1 && media.indexOf('youtu.be') === -1){
-        this.spawn_(spawnID, media);
-    }
+  // If media starts with / we assume that it's a local path, will be handled by getmediaduration
+  if (media.indexOf('youtube.') === -1 && media.indexOf('youtu.be') === -1){
+    this.spawn_(spawnID, media);
+  }
 
-    // Handle Youtube Web urls
-    else {
-        //TODO-tt empty for regular quality
-        let args = [];
-        youtubedl.getInfo(media, args, (err, info) => {
+  // Handle Youtube Web urls
+  else {
+    //TODO-tt empty for regular quality
+    const args = [];
+    youtubedl.getInfo(media, args, (err, info) => {
 
-            if (err) {
-                util.error(err);
-            }
+      if (err) {
+        util.error(err);
+      }
 
             // If another spawn was started, no need to do anything here ...
-            if (this.checkSpawnID_(spawnID)) {
-                return;
-            }
+      if (this.checkSpawnID_(spawnID)) {
+        return;
+      }
 
-            if (!err) {
+      if (!err) {
                 //util.debug(info);
 
-                let url = info.url;
+        const url = info.url;
 
                 // Duration of the media in ms
-                let duration = info._duration_raw;
+        const duration = info._duration_raw;
 
                 // Only handle subtitles for youtube videos
-                if (!ask_subtitles || info.extractor !== 'youtube') {
-                    return this.spawn_(spawnID, url, duration);
-                }
+        if (!ask_subtitles || info.extractor !== 'youtube') {
+          return this.spawn_(spawnID, url, duration);
+        }
 
 
                 // Check for a possible cached subtitles file
-                if (typeof info._filename === "string") {
-                    let subtitleFile = this.computeSrtFilepath_(info, "fr");
+        if (typeof info._filename === 'string') {
+          const subtitleFile = this.computeSrtFilepath_(info, 'fr');
 
-                    if (fs.existsSync(subtitleFile)) {
-                        util.debug('file already exists : using ' + subtitleFile);
-                        return this.spawn_(spawnID, url, duration, media, subtitleFile);
-                    }
-                }
+          if (fs.existsSync(subtitleFile)) {
+            util.debug(`file already exists : using ${ subtitleFile}`);
+            return this.spawn_(spawnID, url, duration, media, subtitleFile);
+          }
+        }
 
-                util.debug('Try downloading subtitles ');
+        util.debug('Try downloading subtitles ');
 
-                let options = {
+        const options = {
                     // Write automatic subtitle file (youtube only)
-                    auto: true,
+          auto: true,
                     // Downloads all the available subtitles.
-                    all: false,
+          all: false,
                     // Subtitle format. YouTube generated subtitles
                     // are available ttml or vtt.
-                    format: 'srt',
+          format: 'srt',
                     // Languages of subtitles to download, separated by commas.
-                    lang: 'fr',
+          lang: 'fr',
                     // The directory to save the downloaded files in.
-                    cwd: this.tempDir,
-                };
+          cwd: this.tempDir,
+        };
 
-                youtubedl.getSubs(media, options, (err, files) => {
-                    if (err) {
-                        util.error(err);
-                    }
+        youtubedl.getSubs(media, options, (err, files) => {
+          if (err) {
+            util.error(err);
+          }
 
                     // If not same spawnID we want to delete any files we could have downloaded
-                    if (this.checkSpawnID_(spawnID)) {
-                        this.deleteFiles_(files);
-                        return;
-                    }
+          if (this.checkSpawnID_(spawnID)) {
+            this.deleteFiles_(files);
+            return;
+          }
 
-                    if (!err) {
+          if (!err) {
                         // In case we have at least one subtitle in the 'files' list
-                        if (files && typeof files[0] === "string") {
+            if (files && typeof files[0] === 'string') {
 
-                            util.debug("Downloaded sutitles : ", files);
+              util.debug('Downloaded sutitles : ', files);
 
-                            let subtitleFile = this.tempDir + '/' + files[0];
+              const subtitleFile = `${this.tempDir }/${ files[0]}`;
 
                             // Start handling the downloaded file (format conversion ..)
-                            this.handleSubtitles(subtitleFile, spawnID).then((subtitleFile) => {
+              this.handleSubtitles(subtitleFile, spawnID).then((subtitleFile) => {
 
-                                if (this.checkSpawnID_(spawnID)) {
-                                    return Promise.reject();
-                                }
+                if (this.checkSpawnID_(spawnID)) {
+                  return Promise.reject();
+                }
 
                                 // Delete any other downloaded files that we don't need to use for the media
-                                this.deleteFiles_(files, [subtitleFile]);
-                                this.spawn_(spawnID, url, duration, media, subtitleFile);
-                            }).catch(reason => {
-                                this.deleteFiles_(files);
-                            });
-                            return;
-                        }
-                    }
-
-                    this.deleteFiles_(files);
-                    this.spawn_(spawnID, url, duration, media);
-
-                });
+                this.deleteFiles_(files, [subtitleFile]);
+                this.spawn_(spawnID, url, duration, media, subtitleFile);
+              }).catch(reason => {
+                this.deleteFiles_(files);
+              });
+              return;
             }
+          }
+
+          this.deleteFiles_(files);
+          this.spawn_(spawnID, url, duration, media);
+
         });
-    }
+      }
+    });
+  }
 };
 
 /**
@@ -329,17 +329,17 @@ RCPI.prototype.spawn_omxplayer = function(media, ask_subtitles){
  * @private
  */
 RCPI.prototype.deleteFiles_ = function(files, excepts){
-    excepts = excepts || [];
-    if (Array.isArray(files)){
-        files.forEach(file => {
-            if (file){
-                file = this.tempDir + '/' + file;
-                if (!excepts.includes(file)){
-                    util.deleteFile(file);
-                }
-            }
-        })
-    }
+  excepts = excepts || [];
+  if (Array.isArray(files)){
+    files.forEach(file => {
+      if (file){
+        file = `${this.tempDir }/${ file}`;
+        if (!excepts.includes(file)){
+          util.deleteFile(file);
+        }
+      }
+    });
+  }
 };
 
 
@@ -347,22 +347,22 @@ RCPI.prototype.deleteFiles_ = function(files, excepts){
  *
  * @param {{_filename:string, ext:string}} info
  * @param {string} language
- * @returns {string}
+ * @return {string}
  * @private
  */
 RCPI.prototype.computeSrtFilepath_ = function(info, language){
-    return this.tempDir + '/' + info._filename.slice(0, info._filename.length - info.ext.length - 1) + "." + language + SRT_EXT;
+  return `${this.tempDir }/${ info._filename.slice(0, info._filename.length - info.ext.length - 1) }.${ language }${SRT_EXT}`;
 };
 
 /**
  * Check is the spawnID parameter id the same as the one stored on the RCPI instance.
  * If different it means that another spawn was called
  * @param spawnID
- * @returns {boolean}
+ * @return {boolean}
  * @private
  */
 RCPI.prototype.checkSpawnID_ = function(spawnID){
-    return spawnID !== this.spawn_id;
+  return spawnID !== this.spawn_id;
 };
 
 
@@ -370,104 +370,104 @@ RCPI.prototype.checkSpawnID_ = function(spawnID){
  *
  * @param {string} subtitleFile
  * @param {number} spawnID
- * @returns {Promise<void|string>}
+ * @return {Promise<void|string>}
  */
 RCPI.prototype.handleSubtitles = function(subtitleFile, spawnID){
 
-    return new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
 
-        if (this.checkSpawnID_(spawnID)){
-            return reject();
-        }
+    if (this.checkSpawnID_(spawnID)){
+      return reject();
+    }
 
-        util.debug("Subtitles "+subtitleFile);
+    util.debug(`Subtitles ${subtitleFile}`);
 
-        if (subtitleFile.endsWith(VTT_EXT)) {
-            let originalFile = subtitleFile;
-            let srtFile = originalFile.slice(0, originalFile.length - VTT_EXT.length) + SRT_EXT;
+    if (subtitleFile.endsWith(VTT_EXT)) {
+      const originalFile = subtitleFile;
+      const srtFile = originalFile.slice(0, originalFile.length - VTT_EXT.length) + SRT_EXT;
 
             // Will use already cached file
-            if (fs.existsSync(srtFile)) {
-                util.deleteFile(originalFile);
-                subtitleFile = srtFile;
-                resolve(srtFile);
-            }
-            else{
-                fs.readFile(originalFile, 'utf8', (err, data) => {
-                    util.deleteFile(originalFile);
+      if (fs.existsSync(srtFile)) {
+        util.deleteFile(originalFile);
+        subtitleFile = srtFile;
+        resolve(srtFile);
+      }
+      else {
+        fs.readFile(originalFile, 'utf8', (err, data) => {
+          util.deleteFile(originalFile);
 
-                    if (err) {
-                        util.error(err);
-                    }
+          if (err) {
+            util.error(err);
+          }
 
-                    if (this.checkSpawnID_(spawnID)){
-                        return reject();
-                    }
+          if (this.checkSpawnID_(spawnID)){
+            return reject();
+          }
 
-                    if (err) {
+          if (err) {
                         // Here originalFile will not have a valid format and will be deleted after if not already
-                        resolve(originalFile);
-                    }
-                    else {
+            resolve(originalFile);
+          }
+          else {
 
-                        let subData = Subtitle.parse(data);
+            const subData = Subtitle.parse(data);
 
-                        if (data.indexOf('<00:') === -1) {
+            if (data.indexOf('<00:') === -1) {
 
-                            subData.forEach(line => {
-                                if (line.text && line.text.length > this.subtitlesMaxChar) {
-                                    line.text = util.subtitleMaxLineLength(line.text, this.subtitlesMaxChar);
-                                }
-                            });
+              subData.forEach(line => {
+                if (line.text && line.text.length > this.subtitlesMaxChar) {
+                  line.text = util.subtitleMaxLineLength(line.text, this.subtitlesMaxChar);
+                }
+              });
 
-                        }
-
-                        let srtdata = Subtitle.stringify(subData);
-
-                        fs.writeFile(srtFile, srtdata, (err) => {
-                            let rValue;
-                            if (err) {
-                                util.error(err);
-                                util.deleteFile(srtFile);
-                            }
-                            else {
-                                util.debug('The file has been saved! : '+srtFile);
-                                rValue = srtFile;
-                            }
-
-                            if (this.checkSpawnID_(spawnID)){
-                                return reject();
-                            }
-
-                            resolve(rValue);
-                        });
-                    }
-                });
             }
-        }
-        else {
+
+            const srtdata = Subtitle.stringify(subData);
+
+            fs.writeFile(srtFile, srtdata, (err) => {
+              let rValue;
+              if (err) {
+                util.error(err);
+                util.deleteFile(srtFile);
+              }
+              else {
+                util.debug(`The file has been saved! : ${srtFile}`);
+                rValue = srtFile;
+              }
+
+              if (this.checkSpawnID_(spawnID)){
+                return reject();
+              }
+
+              resolve(rValue);
+            });
+          }
+        });
+      }
+    }
+    else {
             // Here subtitleFile will not have a valid format and will be deleted after if not already
-            resolve(subtitleFile);
-        }
-    })
-    .then (subtitleFile => {
+      resolve(subtitleFile);
+    }
+  })
+    .then(subtitleFile => {
 
-        if (this.checkSpawnID_(spawnID)){
-            return Promise.reject();
-        }
+      if (this.checkSpawnID_(spawnID)){
+        return Promise.reject();
+      }
 
-        if (subtitleFile) {
-            if (!subtitleFile.endsWith(SRT_EXT)) {
-                util.deleteFile(subtitleFile);
-                subtitleFile = null;
-            }
+      if (subtitleFile) {
+        if (!subtitleFile.endsWith(SRT_EXT)) {
+          util.deleteFile(subtitleFile);
+          subtitleFile = null;
         }
+      }
 
-        if (subtitleFile) {
-            util.log('SUBTITLES: '+ subtitleFile);
-        }
+      if (subtitleFile) {
+        util.log(`SUBTITLES: ${ subtitleFile}`);
+      }
 
-        return subtitleFile;
+      return subtitleFile;
     });
 };
 
@@ -481,25 +481,25 @@ RCPI.prototype.handleSubtitles = function(subtitleFile, spawnID){
  * @private
  */
 RCPI.prototype.spawn_ = function(spawnID, media, duration, displayedUrl, subtitles){
-    if (RCPI.MOCK_MEDIALIST.indexOf(media) > -1){
-        duration = 10000;
+  if (RCPI.MOCK_MEDIALIST.indexOf(media) > -1){
+    duration = 10000;
+  }
+
+  if (typeof duration !== 'undefined'){
+    this.spawnOk_(spawnID, media, duration, displayedUrl, subtitles);
+    return;
+  }
+
+  getvideoduration(media).then((duration) => {
+
+    if (this.checkSpawnID_(spawnID)){
+      return Promise.reject('another spawn instance started');
     }
 
-    if (typeof duration !== 'undefined'){
-        this.spawnOk_(spawnID, media, duration, displayedUrl, subtitles);
-        return;
-    }
-
-    getvideoduration(media).then((duration) => {
-
-        if (this.checkSpawnID_(spawnID)){
-            return Promise.reject("another spawn instance started");
-        }
-
-    	this.spawnOk_(spawnID, media, duration, displayedUrl, subtitles);
-    }, (error) => {
-        util.error(media, error);
-    });
+    this.spawnOk_(spawnID, media, duration, displayedUrl, subtitles);
+  }, (error) => {
+    util.error(media, error);
+  });
 };
 
 /**
@@ -513,275 +513,275 @@ RCPI.prototype.spawn_ = function(spawnID, media, duration, displayedUrl, subtitl
  */
 RCPI.prototype.spawnOk_ = function(spawnID, media, duration, displayedUrl, subtitles){
 
-    if (this.checkSpawnID_(spawnID)){
-        return;
+  if (this.checkSpawnID_(spawnID)){
+    return;
+  }
+
+  displayedUrl = displayedUrl || media;
+
+  util.log(`lancement ${displayedUrl} durée ${duration}`);
+
+  this.currentMediaDuration_ = Math.round(duration * 1000);
+
+  const custom_omx_args = [];
+
+  if (subtitles) {
+    custom_omx_args.push('--align', 'center', '--subtitles', subtitles);
+    this.subtitlesEnabled = true;
+  }
+  else {
+    this.subtitlesEnabled = false;
+  }
+
+  let cursorTime = 0;
+
+  if (this.histo.length){
+    if (this.histo[0].url === displayedUrl){
+      custom_omx_args.push('--pos', util.getOmxTime(this.histo[0].time));
+      cursorTime = this.histo[0].time || 0;
     }
-
-    displayedUrl = displayedUrl || media;
-
-    util.log('lancement '+displayedUrl+' durée '+duration);
-
-    this.currentMediaDuration_ = Math.round(duration * 1000);
-
-    let custom_omx_args = [];
-
-    if (subtitles) {
-        custom_omx_args.push('--align','center','--subtitles', subtitles);
-        this.subtitlesEnabled = true;
-    }
-    else{
-        this.subtitlesEnabled = false;
-    }
-
-    let cursorTime = 0;
-
-    if (this.histo.length){
-        if (this.histo[0].url === displayedUrl){
-            custom_omx_args.push('--pos', util.getOmxTime(this.histo[0].time));
-            cursorTime = this.histo[0].time || 0;
-        }
-    }
-    this.histo[0] = {
-        url: displayedUrl,
-    };
+  }
+  this.histo[0] = {
+    url: displayedUrl,
+  };
 
     // If omx was never initialized create new instance and setup listeners
-    if (this.omx_player == null){
-        this.omx_player = Omx(media, 'hdmi', false, this.volume, false, custom_omx_args);
+  if (this.omx_player == null){
+    this.omx_player = Omx(media, 'hdmi', false, this.volume, false, custom_omx_args);
 
-        this.omx_player.on('error', msg => {
-            util.error("error", msg);
-            this.clients.timeout_duration = 240000;
-        });
+    this.omx_player.on('error', msg => {
+      util.error('error', msg);
+      this.clients.timeout_duration = 240000;
+    });
 
-        this.omx_player.on('close', code => {
-            util.log("closed", code);
+    this.omx_player.on('close', code => {
+      util.log('closed', code);
 
-            if (!this.asked_close && this.isMediaPlaying && this.histo[0]) {
-                this.histo[0].time = this.currentMediaCursor_;
-            }
+      if (!this.asked_close && this.isMediaPlaying && this.histo[0]) {
+        this.histo[0].time = this.currentMediaCursor_;
+      }
 
-            this.isMediaPlaying = false;
+      this.isMediaPlaying = false;
 
-            if (!this.asked_close){
-                var i = this.mList.indexOf(this.mediaPath);
-                if (i > -1 && this.mList[i+1]){
-                    if (getFilmName(this.mList[i+1]).startsWith(getFilmName(this.mediaPath).substr(0,8))){
-                        this.spawn_omxplayer(this.mList[i+1], this.subtitlesEnabled);
-                        return;
-                    }
-                }
-            }
-            this.subtitlesEnabled = false;
-        });
-    }
-    else{
-        this.omx_player.newSource(media, 'hdmi', false, this.volume, false, custom_omx_args);
-    }
+      if (!this.asked_close){
+        const i = this.mList.indexOf(this.mediaPath);
+        if (i > -1 && this.mList[i + 1]){
+          if (getFilmName(this.mList[i + 1]).startsWith(getFilmName(this.mediaPath).substr(0, 8))){
+            this.spawn_omxplayer(this.mList[i + 1], this.subtitlesEnabled);
+            return;
+          }
+        }
+      }
+      this.subtitlesEnabled = false;
+    });
+  }
+  else {
+    this.omx_player.newSource(media, 'hdmi', false, this.volume, false, custom_omx_args);
+  }
 
     // New media should be spawning now, so we might want to update the timeout duration for the connected clients
     // It should be duration of the media + 5 min or 10 min ?
-    this.clients.update_timeout(this.currentMediaDuration_);
+  this.clients.update_timeout(this.currentMediaDuration_);
 
-    this.mediaPath = displayedUrl;
-    this.resetMediaCursor(cursorTime);
-    this.sendInfos();
+  this.mediaPath = displayedUrl;
+  this.resetMediaCursor(cursorTime);
+  this.sendInfos();
 };
 
 
 RCPI.prototype.send_to_omx = function(client, key){
-    if (this.omx_player != null && this.omx_player.running){
-        switch(key){
-            case KEYS.PLAY:
-                this.playPauseCursor();
-                this.omx_player.play();
-                this.sendInfos(client);
-                break;
-            case KEYS.PLAYBACK_BACKWARD600:
-                this.updateMediaCursor();
-                this.moveCursor(util.sec(-600));
-                this.omx_player.back600();
-                this.sendCursorInfos(client);
-                break;
-            case KEYS.PLAYBACK_BACKWARD30:
-                this.updateMediaCursor();
-                this.moveCursor(util.sec(-30));
-                this.omx_player.back30();
-                this.sendCursorInfos(client);
-                break;
-            case KEYS.PLAYBACK_FORWARD30:
-                this.updateMediaCursor();
-                this.moveCursor(util.sec(30));
-                this.omx_player.fwd30();
-                this.sendCursorInfos(client);
-                break;
-            case KEYS.PLAYBACK_FORWARD600:
-                this.updateMediaCursor();
-                this.moveCursor(util.sec(600));
-                this.omx_player.fwd600();
-                this.sendCursorInfos(client);
-                break;
-            case KEYS.AUDIO_TRACK_NEXT:
-                this.omx_player.nextAudio();
-                break;
-            case KEYS.AUDIO_TRACK_PREV:
-                this.omx_player.prevAudio();
-                break;
-            case KEYS.AUDIO_VOL_UP:
-                this.volume += 100;
-                this.omx_player.volUp();
-                break;
-            case KEYS.AUDIO_VOL_DOWN:
-                this.volume -= 100;
-                this.omx_player.volDown();
-                break;
-            case KEYS.SUBTITLE_TOGGLE:
-                this.subtitlesEnabled = !this.subtitlesEnabled;
-                this.omx_player.subtitles();
-                break;
-            case KEYS.SUBTITLE_TRACK_NEXT:
-                this.omx_player.nextSubtitle();
-                break;
-            case KEYS.SUBTITLE_TRACK_PREV:
-                this.omx_player.prevSubtitle();
-                break;
-            case KEYS.SUBTITLE_DELAY_DEC:
-                this.omx_player.decSubDelay();
-                break;
-            case KEYS.SUBTITLE_DELAY_INC:
-                this.omx_player.incSubDelay();
-                break;
-            case KEYS.QUIT:
-                this.asked_close = true;
+  if (this.omx_player != null && this.omx_player.running){
+    switch (key){
+      case KEYS.PLAY:
+        this.playPauseCursor();
+        this.omx_player.play();
+        this.sendInfos(client);
+        break;
+      case KEYS.PLAYBACK_BACKWARD600:
+        this.updateMediaCursor();
+        this.moveCursor(util.sec(-600));
+        this.omx_player.back600();
+        this.sendCursorInfos(client);
+        break;
+      case KEYS.PLAYBACK_BACKWARD30:
+        this.updateMediaCursor();
+        this.moveCursor(util.sec(-30));
+        this.omx_player.back30();
+        this.sendCursorInfos(client);
+        break;
+      case KEYS.PLAYBACK_FORWARD30:
+        this.updateMediaCursor();
+        this.moveCursor(util.sec(30));
+        this.omx_player.fwd30();
+        this.sendCursorInfos(client);
+        break;
+      case KEYS.PLAYBACK_FORWARD600:
+        this.updateMediaCursor();
+        this.moveCursor(util.sec(600));
+        this.omx_player.fwd600();
+        this.sendCursorInfos(client);
+        break;
+      case KEYS.AUDIO_TRACK_NEXT:
+        this.omx_player.nextAudio();
+        break;
+      case KEYS.AUDIO_TRACK_PREV:
+        this.omx_player.prevAudio();
+        break;
+      case KEYS.AUDIO_VOL_UP:
+        this.volume += 100;
+        this.omx_player.volUp();
+        break;
+      case KEYS.AUDIO_VOL_DOWN:
+        this.volume -= 100;
+        this.omx_player.volDown();
+        break;
+      case KEYS.SUBTITLE_TOGGLE:
+        this.subtitlesEnabled = !this.subtitlesEnabled;
+        this.omx_player.subtitles();
+        break;
+      case KEYS.SUBTITLE_TRACK_NEXT:
+        this.omx_player.nextSubtitle();
+        break;
+      case KEYS.SUBTITLE_TRACK_PREV:
+        this.omx_player.prevSubtitle();
+        break;
+      case KEYS.SUBTITLE_DELAY_DEC:
+        this.omx_player.decSubDelay();
+        break;
+      case KEYS.SUBTITLE_DELAY_INC:
+        this.omx_player.incSubDelay();
+        break;
+      case KEYS.QUIT:
+        this.asked_close = true;
 
-                this.histo[0].time = this.currentMediaCursor_;
+        this.histo[0].time = this.currentMediaCursor_;
 
-                this.omx_player.quit();
-                this.isMediaPlaying = false;
-                break;
-            case KEYS.INFOS:
-                this.omx_player.info();
-                break;
-            default:
-                util.log('key not found '+key);
-                break;
-        }
+        this.omx_player.quit();
+        this.isMediaPlaying = false;
+        break;
+      case KEYS.INFOS:
+        this.omx_player.info();
+        break;
+      default:
+        util.log(`key not found ${key}`);
+        break;
     }
+  }
 };
 
 RCPI.prototype.get_play_packet = function(){
-    return [
-        this.currentMediaCursor_,
-        this.isMediaPlaying,
-        this.currentMediaDuration_,
-	    this.mediaPath,
-      this.subtitlesEnabled
-    ];
+  return [
+    this.currentMediaCursor_,
+    this.isMediaPlaying,
+    this.currentMediaDuration_,
+    this.mediaPath,
+    this.subtitlesEnabled,
+  ];
 };
 RCPI.prototype.get_cursor_packet = function(){
-    return [
-        this.currentMediaCursor_,
-        this.subtitlesEnabled
-    ];
+  return [
+    this.currentMediaCursor_,
+    this.subtitlesEnabled,
+  ];
 };
 
 RCPI.prototype.sendInfos = function(){
-    this.broadcast(KEYS.FINFOS, this.get_play_packet());
-    this.clients.update_timeout(this.isMediaPlaying ? (this.currentMediaDuration_ - this.currentMediaCursor_) : 0);
+  this.broadcast(KEYS.FINFOS, this.get_play_packet());
+  this.clients.update_timeout(this.isMediaPlaying ? (this.currentMediaDuration_ - this.currentMediaCursor_) : 0);
 };
 RCPI.prototype.sendCursorInfos = function(){
-    this.broadcast(KEYS.FINFOS, this.get_cursor_packet());
-    this.clients.update_timeout(this.isMediaPlaying ? (this.currentMediaDuration_ - this.currentMediaCursor_) : 0);
+  this.broadcast(KEYS.FINFOS, this.get_cursor_packet());
+  this.clients.update_timeout(this.isMediaPlaying ? (this.currentMediaDuration_ - this.currentMediaCursor_) : 0);
 };
 
 RCPI.prototype.broadcast = function(action, data){
-	this.clients.broadcast(action, data);
+  this.clients.broadcast(action, data);
 };
 
 RCPI.prototype.resetMediaCursor = function(cursorTime){
-    this.currentMediaCursor_ = cursorTime || 0;
-    this.isMediaPlaying = true;
-    this.lastCheck_ = +new Date();
+  this.currentMediaCursor_ = cursorTime || 0;
+  this.isMediaPlaying = true;
+  this.lastCheck_ = +new Date();
 };
 RCPI.prototype.playPauseCursor = function(){
-    this.updateMediaCursor();
-    this.isMediaPlaying = !this.isMediaPlaying;
+  this.updateMediaCursor();
+  this.isMediaPlaying = !this.isMediaPlaying;
 
 };
 RCPI.prototype.updateMediaCursor = function(){
-    if (this.isMediaPlaying) {
-        this.moveCursor(+new Date() - this.lastCheck_);
-    }
-    this.lastCheck_ = +new Date();
+  if (this.isMediaPlaying) {
+    this.moveCursor(+new Date() - this.lastCheck_);
+  }
+  this.lastCheck_ = +new Date();
 };
 
 RCPI.prototype.moveCursor = function(d){
-    if (this.currentMediaCursor_ + d > this.currentMediaDuration_){
-        this.currentMediaCursor_ = this.currentMediaDuration_;
-        this.mediaEnded = true;
-    }
-    else if (this.currentMediaCursor_ + d < 0){
-        this.currentMediaCursor_ = 0;
-    }
-    else {
-        this.currentMediaCursor_ = this.currentMediaCursor_ + d;
-    }
+  if (this.currentMediaCursor_ + d > this.currentMediaDuration_){
+    this.currentMediaCursor_ = this.currentMediaDuration_;
+    this.mediaEnded = true;
+  }
+  else if (this.currentMediaCursor_ + d < 0){
+    this.currentMediaCursor_ = 0;
+  }
+  else {
+    this.currentMediaCursor_ = this.currentMediaCursor_ + d;
+  }
 };
 
 RCPI.prototype.clean_exit = function(){
-    if (this.omx_player != null){
-        this.omx_player.quit();
-    }
-    if (this.wsServer !== null) {
-        this.wsServer.close(function () {
-            util.log('WSServer closed!');
-            process.exit(); // should call exitHandler with cleanup
-        });
-    }
-    if (this.udpServer !== null) {
-        this.udpServer.close(function () {
-            util.log('UDPServer closed!');
-        });
-    }
+  if (this.omx_player != null){
+    this.omx_player.quit();
+  }
+  if (this.wsServer !== null) {
+    this.wsServer.close(function() {
+      util.log('WSServer closed!');
+      process.exit(); // should call exitHandler with cleanup
+    });
+  }
+  if (this.udpServer !== null) {
+    this.udpServer.close(function() {
+      util.log('UDPServer closed!');
+    });
+  }
 };
 
 RCPI.prototype.download = function(client, url){
-    let mediaUrl = url;
-    wget({
-        url:  url,
-        dest: this.downloadDir,      // destination path or path with filenname, default is ./
-        timeout: 2000       // duration to wait for request fulfillment in milliseconds, default is 2 seconds
-    }, function(error, response){
-        if(error){
-            
-        }
-        else{
+  const mediaUrl = url;
+  wget({
+    url: url,
+    dest: this.downloadDir, // destination path or path with filenname, default is ./
+    timeout: 2000, // duration to wait for request fulfillment in milliseconds, default is 2 seconds
+  }, function(error, response){
+    if (error){
 
-        }
-    });
+    }
+    else {
+
+    }
+  });
 };
 
 RCPI.prototype.sub_debug = function(client){
-    if (this.subs.indexOf(client) === -1){
-        this.subs.push(client);
-        return true;
-    }
-    return false;
+  if (this.subs.indexOf(client) === -1){
+    this.subs.push(client);
+    return true;
+  }
+  return false;
 };
 
 RCPI.prototype.unsub_debug = function(client){
-    let iof = this.subs.indexOf(client);
-    if (iof > -1){
-        this.subs.splice(iof, 1);
-        return true;
-    }
-    return false;
+  const iof = this.subs.indexOf(client);
+  if (iof > -1){
+    this.subs.splice(iof, 1);
+    return true;
+  }
+  return false;
 };
 
 
 function getFilmName(path){
-    var a = path.split("/");
-    return a[a.length -1];
+  const a = path.split('/');
+  return a[a.length - 1];
 }
 
 module.exports.RCPI = RCPI;

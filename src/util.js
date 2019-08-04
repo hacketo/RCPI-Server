@@ -5,36 +5,36 @@
 const fs = require('fs');
 
 function walk(dir, sub){
-    sub = sub || 0;
-    var results = [];
-    var list = fs.readdirSync(dir);
-    list.forEach(function(file) {
-        if (file[0] !== '.') {
-            file = dir + '/' + file;
-            var stat = fs.statSync(file);
-            if (stat && stat.isDirectory()) {
-                if (sub < 3) {
-                    results = results.concat(walk(file, sub+1));
-                }
-            }
-            else {
-                if (isMedia(file)){
-                    results.push(file);
-                }
-            }
+  sub = sub || 0;
+  let results = [];
+  const list = fs.readdirSync(dir);
+  list.forEach(function(file) {
+    if (file[0] !== '.') {
+      file = `${dir }/${ file}`;
+      const stat = fs.statSync(file);
+      if (stat && stat.isDirectory()) {
+        if (sub < 3) {
+          results = results.concat(walk(file, sub + 1));
         }
-    });
-    return results;
+      }
+      else {
+        if (isMedia(file)){
+          results.push(file);
+        }
+      }
+    }
+  });
+  return results;
 }
 
 function deleteFile(filePath){
-    fs.unlink(filePath, (err) => {
+  fs.unlink(filePath, (err) => {
         //if (err) throw err;
-        debug('Subtitle file '+filePath+' was '+(err ? "NOT " : "")+'deleted');
-    });
+    debug(`Subtitle file ${filePath} was ${err ? 'NOT ' : ''}deleted`);
+  });
 }
 
-var EXT_LIST = ['avi', 'mkv', 'mp4', 'm4v'];
+const EXT_LIST = ['avi', 'mkv', 'mp4', 'm4v'];
 
 /**
  * Teste l'extention du fichier passé en parametre
@@ -42,44 +42,44 @@ var EXT_LIST = ['avi', 'mkv', 'mp4', 'm4v'];
  * @returns {boolean}
  */
 function isMedia(file){
-    var ext = file.substring(file.lastIndexOf('.'));
+  let ext = file.substring(file.lastIndexOf('.'));
 
-    if (ext.length > 0){
-        ext = ext.substr(1);
-        return (EXT_LIST.indexOf(ext.toLowerCase()) != -1);
-    }
-    return false;
+  if (ext.length > 0){
+    ext = ext.substr(1);
+    return (EXT_LIST.indexOf(ext.toLowerCase()) != -1);
+  }
+  return false;
 }
 
 function computePacket(action, data){
-    return JSON.stringify({action:action, data:data});
+  return JSON.stringify({action: action, data: data});
 }
 
 function sec(ms_){
-    return ms_ * 1000;
+  return ms_ * 1000;
 }
 
 function log(msg){
-    console.log.apply(console, arguments);
+  console.log.apply(console, arguments);
 }
 function error(msg){
-    console.error.apply(console, arguments);
+  console.error.apply(console, arguments);
 }
 function debug(msg){
-    console.log.apply(console, arguments);
+  console.log.apply(console, arguments);
 }
 
 function getOmxTime(duration){
 
-    function padTime(i) {
-        if (i < 10) {
-            i = "0" + i;
-        }
-        return i;
+  function padTime(i) {
+    if (i < 10) {
+      i = `0${ i}`;
     }
+    return i;
+  }
 
-    let d = new Date(duration);
-    return padTime(d.getUTCHours())+":"+padTime(d.getUTCMinutes())+":"+padTime(d.getUTCSeconds());
+  const d = new Date(duration);
+  return `${padTime(d.getUTCHours())}:${padTime(d.getUTCMinutes())}:${padTime(d.getUTCSeconds())}`;
 }
 
 /**
@@ -90,49 +90,49 @@ function getOmxTime(duration){
  */
 function subtitleMaxLineLength(str, size) {
 
-    if (str.length <= size){
-        return str;
+  if (str.length <= size){
+    return str;
+  }
+
+  const lines = str.split(/\n/);
+
+  for (let i = 0, len = lines.length; i < len; i++){
+    if (lines[i].length <= size){
+      continue;
     }
 
-    let lines = str.split(/\n/);
+    const str = lines[i];
 
-    for (let i = 0, len = lines.length ; i < len ; i++){
-        if (lines[i].length <= size){
-            continue;
-        }
+    const numChunks = Math.ceil(str.length / size);
+    const chunks = [];
 
-        let str = lines[i];
+    let newSize = 0;
+    for (let i = 0, o = 0; i < numChunks; ++i) {
+      let nextO = str.indexOf(' ', o + size);
+      if (nextO === -1){
+        nextO = str.length;
+        newSize = nextO - o;
+      }
+      else {
+        nextO += 1;
+        newSize = nextO - o - 1;
+      }
 
-        const numChunks = Math.ceil(str.length / size);
-        const chunks = [];
+      if (newSize <= 0){
+        continue;
+      }
 
-        let newSize = 0;
-        for (let i = 0, o = 0; i < numChunks; ++i) {
-            let nextO = str.indexOf(' ', o + size);
-            if (nextO === -1){
-                nextO = str.length;
-                newSize = nextO - o;
-            }
-            else{
-                nextO += 1;
-                newSize = nextO - o - 1;
-            }
-
-            if (newSize <= 0){
-                continue;
-            }
-
-            let chunk = str.substr(o, newSize);
+      const chunk = str.substr(o, newSize);
 
 
-            chunks[i] = chunk;
-            o += newSize + 1;
-        }
-
-        lines[i] = chunks.join('\n');
+      chunks[i] = chunk;
+      o += newSize + 1;
     }
 
-    return lines.join('\n');
+    lines[i] = chunks.join('\n');
+  }
+
+  return lines.join('\n');
 }
 
 module.exports.walk = walk;
