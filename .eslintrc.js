@@ -2,7 +2,6 @@ module.exports = {
     "env": {
         "node": true,
         "mocha": true,
-        "chai": true,
         "es6": true
     },
     "extends": [
