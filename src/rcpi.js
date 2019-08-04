@@ -199,7 +199,7 @@ const SRT_EXT = '.srt';
 /**
  *
  * @param {string} media - url of the media file used for the omx instance source
- * @param {boolean} ask_subtitles
+ * @param {boolean|number|undefined} ask_subtitles
  */
 RCPI.prototype.spawn_omxplayer = function(media, ask_subtitles){
 
@@ -209,7 +209,7 @@ RCPI.prototype.spawn_omxplayer = function(media, ask_subtitles){
   // reset flag
   this.asked_close = false;
 
-  this.subtitlesEnabled = ask_subtitles;
+  this.subtitlesEnabled = typeof ask_subtitles === 'undefined' ? true : !!ask_subtitles;
 
   if (media === 'H'){
     if (this.histo.length){
@@ -246,7 +246,7 @@ RCPI.prototype.spawn_omxplayer = function(media, ask_subtitles){
         const duration = info._duration_raw;
 
                 // Only handle subtitles for youtube videos
-        if (!ask_subtitles || info.extractor !== 'youtube') {
+        if (!this.subtitlesEnabled || info.extractor !== 'youtube') {
           return this.spawn_(spawnID, url, duration);
         }
 

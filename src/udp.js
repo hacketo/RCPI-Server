@@ -57,7 +57,7 @@ UDPServer.prototype.init = function(rcpi){
       util.log(`UDPServer got: ${KEY_STR[key]} from ${rinfo.address}:${rinfo.port}`);
     }
 
-	    // chekc KEY
+    // check KEY
     switch (key){
       case KEYS.PING:
         rcpi.onPING(client);
@@ -66,7 +66,7 @@ UDPServer.prototype.init = function(rcpi){
         rcpi.onLIST(client);
         break;
       case KEYS.OPEN:
-        rcpi.onOPEN(client, m[2], !!m[3]);
+        rcpi.onOPEN(client, m[2], m[3]);
         break;
       case KEYS.DEBUG:
         rcpi.onDEBUG(client, m[2]);
