@@ -1,14 +1,14 @@
-
 const pHash = '_$_$_hash';
 
 /**
+ * Class used to handle property replacement in tests
  *
  * @usage:
  *
  *
  * @class
  * @constructor
- * @property {Map<string, PropertyModel>} properties_
+ * @property {Object} properties_
  */
 function PropertyReplacer(){
 
@@ -62,7 +62,7 @@ PropertyReplacer.prototype.replace = function(object, property, replacer, type){
   const key = this.getKey_(object, property);
 
   if (!this.properties_.has(key)){
-    let propertyModel = new PropertyModel(object, property, object[property]);
+    const propertyModel = new PropertyModel(object, property, object[property]);
     this.properties_.set(key, propertyModel);
   }
 
@@ -78,15 +78,28 @@ PropertyReplacer.prototype.replace = function(object, property, replacer, type){
     switch (type){
       case PropertyReplacer.TYPE.BEFORE:
         object[property] = function(){
-          return original.value.apply(original.object, replacer.apply(original.object, arguments));
+          //replacer is called before Original, meaning that we can control all original arguments
+          // Then replacer should return an Array of arguments
+          let rValue = replacer.apply(original.object, arguments);
+
+          // If we have a rValue but its not an array convert it to an array to be able to call it with the apply method
+          // void 0 is the only rValue that is useless to forward...
+          if (rValue !== void 0 && !Array.isArray(rValue)){
+            rValue = [rValue];
+          }
+          return original.value.apply(original.object, rValue);
         };
         break;
+
       case PropertyReplacer.TYPE.REPLACE:
         object[property] = replacer;
         break;
+
       case PropertyReplacer.TYPE.AFTER:
+        //replacer is called after Original, meaning that it can only have access to the return value of the original function
         object[property] = function(){
-          return replacer.call(original.object, original.value.apply(original.object, arguments));
+          const rValue = original.value.apply(original.object, arguments);
+          return replacer.call(original.object, rValue);
         };
         break;
 
@@ -108,7 +121,7 @@ PropertyReplacer.prototype.replace = function(object, property, replacer, type){
  */
 PropertyReplacer.prototype.restore = function(object, property){
   const key = this.getKey_(object, property, false);
-  if (this.properties_.has(key)) {
+  if (this.hasKey_(key)){
     object[property] = this.properties_.get(key).value;
     return this.properties_.delete(key);
   }
@@ -121,7 +134,7 @@ PropertyReplacer.prototype.restore = function(object, property){
 PropertyReplacer.prototype.restoreAll = function(){
   this.properties_.forEach(propertyModel => {
     const key = this.getKey_(propertyModel.object, propertyModel.property, false);
-    if (this.properties_.has(key)) {
+    if (this.hasKey_(key)){
       propertyModel.object[propertyModel.property] = propertyModel.value;
     }
     else {
@@ -146,7 +159,7 @@ PropertyReplacer.prototype.getHash_ = function(object, create){
 
   if (!object[this.hash_]){
     if (!create){
-      throw new Error('hash does not exists for object '+object);
+      throw new Error('hash does not exists for object ' + object);
     }
     object[this.hash_] = ++this.nId;
   }
@@ -168,29 +181,33 @@ PropertyReplacer.prototype.getKey_ = function(object, property, create){
     create = true;
   }
 
-  if (typeof property !== "string"){
+  if (typeof property !== 'string'){
     throw new Error('property has to be a string');
   }
 
-  if (!property in object){
-    throw new Error('Object dont have property :'+property);
+  if (!(property in object)){
+    throw new Error('Object dont have property :' + property);
   }
 
   const hash = this.getHash_(object, create);
 
   if (!hash){
-    throw new Error('canfind a hash for '+object);
+    throw new Error('canfind a hash for ' + object);
   }
 
-  const key = hash + ':'+property;
+  const key = hash + ':' + property;
 
-  if (!create && !this.properties_.has(key)){
-    throw new Error('key ['+key+']does not exists for object '+object);
+  if (!create && !this.hasKey_(key)){
+    throw new Error('key [' + key + ']does not exists for object ' + object);
   }
 
   return key;
 };
 
+PropertyReplacer.prototype.hasKey_ = function(key){
+  return this.properties_.has(key);
+};
+
 module.exports = {
-  PropertyReplacer : PropertyReplacer
+  PropertyReplacer: PropertyReplacer,
 };
