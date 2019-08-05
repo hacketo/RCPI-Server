@@ -35,11 +35,12 @@ const getSpyArgs = function(){
 
 /**
  * Return a new spy that return 1
+ * @param {*=} a
  * @return {spy}
  */
-const getSpy1 = function(){
+const getSpy1 = function(a){
   return sinon.spy(function(){
-    return 1;
+    return a || 1;
   });
 };
 
@@ -72,20 +73,18 @@ describe('PropertyModel', function(){
   let myObject;
   let originalFn;
 
-  beforeEach(function(){
-
-    //initialize default original spy for object_ myFunction that return 1
-    originalFn = getSpy1();
-
-    // Create new Object
-    myObject = {
-      myFunction: originalFn,
-    };
-
-    model = new PropertyModel(myObject, 'myFunction');
-  });
-
   describe('construct', function(){
+
+    beforeEach(function(){
+      //initialize default original spy for object_ myFunction that return 1
+      originalFn = getSpy1();
+      // Create new Object
+      myObject = {
+        myFunction: originalFn,
+      };
+      model = new PropertyModel(myObject, 'myFunction');
+    });
+
     it('should have a list of replaced properties', function(){
       expect(model.object_).to.be.equal(myObject);
 
@@ -111,84 +110,184 @@ describe('PropertyModel', function(){
   });
 
   describe('setupProperty_', function(){
-
-    it('should hook the setter of the property object on this.setter_', function(){
-      expect(model.object_).to.be.equal(myObject);
-
-      let setterSpy = sinon.spy(function(val){
-        this.value_ = val;
-        return val;
-      });
-      model.setter_ = setterSpy;
-
-      expect(myObject.myFunction).to.equal(originalFn);
-
-      myObject.myFunction = 1;
-
-      calledOnWith(setterSpy, model, [1]);
-      expect(model.value_).to.be.equal(1);
+    beforeEach(function(){
+      //initialize default original spy for object_ myFunction that return 1
+      originalFn = getSpy1();
+      // Create new Object
+      myObject = {
+        myFunction: originalFn,
+      };
+      model = new PropertyModel(myObject, 'myFunction');
     });
 
-    it('should observe the original setter of the property object on ', function(){
-      const myObject2 = {};
+    describe('setter_', function(){
+      it('should bind the setter on this.setter_', function(){
+        expect(model.object_).to.be.equal(myObject);
 
-      const spyGetter = getSpy1();
+        let setterSpy = sinon.spy(function(val){
+          this.value_ = val;
+          return val;
+        });
+        model.setter_ = setterSpy;
 
-      Object.defineProperty(myObject2, 'myFunction', {
-        get:spyGetter,
-        configurable:true,
+        expect(myObject.myFunction).to.equal(originalFn);
+
+        myObject.myFunction = 1;
+
+        calledOnWith(setterSpy, model, [1]);
+        expect(model.value_).to.be.equal(1);
       });
-
-      let model2 = new PropertyModel(myObject2, 'myFunction');
-
-
-      expect(model2.replacers_[PropertyReplacer.TYPE.GETTER]).to.equal(spyGetter);
-
-      expect(myObject2.myFunction).to.equal(1);
-      calledOnWith(spyGetter, myObject2, [1]);
-
-      expect(model.value_).to.be.equal(1);
     });
 
-    it('should hook the getter of the property object on this.getter_', function(){
-      expect(model.object_).to.be.equal(myObject);
+    describe('getter_', function(){
+      it('should bind the getter on this.getter_', function(){
+        expect(model.object_).to.be.equal(myObject);
 
-      let getterSpy = sinon.spy(function(){
-        return 1;
+        let getterSpy = sinon.spy(function(){
+          return 1;
+        });
+
+        model.getter_ = getterSpy;
+
+        // resolve a value;
+        let fn = myObject.myFunction;
+        expect(fn).to.equal(1);
+
+        calledOnWith(getterSpy, model, []);
       });
-
-      model.getter_ = getterSpy;
-
-      let fn = myObject.myFunction;
-      expect(fn).to.equal(1);
-
-      calledOnWith(getterSpy, model, []);
     });
   });
 
   describe('observe', function(){
 
-    it('should call the setter before the real one', function(){
-
-
-
-      const mockSetterBefore = sinon.spy(function(val){
-        return val;
-      });
-
-      const mockSetter = sinon.spy(function(val){
-        return val;
-      });
-
-
-      model.observe(PropertyReplacer.TYPE.SETTER_BEFORE, mockSetterBefore);
-      model.observe(PropertyReplacer.TYPE.SETTER, mockSetterBefore);
-      model.observe(PropertyReplacer.TYPE.SETTER_AFTER, mockSetterBefore);
-      model.setter_ = mockSetter;
-
-
+    beforeEach(function(){
+      // Create new Object
+      myObject = {};
     });
 
+    describe('SETTER', function(){
+      const defaultSetter = getSpy1();
+      beforeEach(function(){
+        // Create new Object
+        defaultSetter.resetHistory();
+        Object.defineProperty(myObject, 'myFunction', {
+          set:defaultSetter,
+          configurable:true,
+        });
+      });
+
+      it('should hook the original setter to a SETTER replacer', function(){
+
+        let model2 = new PropertyModel(myObject, 'myFunction');
+
+        expect(model2.replacers_[PropertyReplacer.TYPE.SETTER], 'should have a default GETTER replacer').to.equal(defaultSetter);
+
+        // We have no default value and no setter so ...
+        expect(myObject.myFunction).to.equal(undefined);
+
+        myObject.myFunction = 2;
+        calledOnWith(defaultSetter, myObject, [2]);
+
+        expect(model2.value_, 'setter should have updated value').to.be.equal(1);
+      });
+
+      it('should hook the spy BEFORE the real setter', function(){
+        const spySetter = getSpy1(2);
+
+        let model2 = new PropertyModel(myObject, 'myFunction');
+
+        model2.observe(PropertyReplacer.TYPE.SETTER_BEFORE, spySetter);
+
+        myObject.myFunction = 3;
+        calledOnWith(spySetter, myObject, [3]);
+        calledOnWith(defaultSetter, myObject, [2]);
+
+        expect(spySetter).to.have.been.calledBefore(defaultSetter);
+
+        // Value returned by default setter is 1
+        expect(model2.value_, 'setter should have updated value').to.be.equal(1);
+      });
+
+      it('should hook the spy AFTER the real setter', function(){
+        const spySetter = getSpy1(2);
+
+        let model2 = new PropertyModel(myObject, 'myFunction');
+
+        model2.observe(PropertyReplacer.TYPE.SETTER_AFTER, spySetter);
+
+        myObject.myFunction = 3;
+        calledOnWith(defaultSetter, myObject, [3]);
+        calledOnWith(spySetter, myObject, [1]);
+
+        expect(defaultSetter).to.have.been.calledBefore(spySetter);
+
+        // Value returned by spy setter is 2
+        expect(model2.value_, 'setter should have updated value').to.be.equal(2);
+      });
+    });
+
+    describe('GETTER', function(){
+      const defaultGetter = getSpy1();
+
+      beforeEach(function(){
+        defaultGetter.resetHistory();
+
+        Object.defineProperty(myObject, 'myFunction', {
+          get:defaultGetter,
+          configurable:true,
+        });
+      });
+
+      it('should hook the original getter to a GETTER replacer', function(){
+
+        let model2 = new PropertyModel(myObject, 'myFunction');
+
+        expect(model2.replacers_[PropertyReplacer.TYPE.GETTER], 'should have a default GETTER replacer').to.equal(defaultGetter);
+
+        expect(myObject.myFunction).to.equal(1);
+        calledOnWith(defaultGetter, myObject, []);
+
+        expect(model2.value_).to.be.equal(1);
+      });
+
+      it('should hook the spy BEFORE the real getter', function(){
+
+        const spyGetter = getSpy1(2);
+
+        let model2 = new PropertyModel(myObject, 'myFunction');
+
+        model2.observe(PropertyReplacer.TYPE.GETTER_BEFORE, spyGetter);
+
+        expect(myObject.myFunction).to.equal(1);
+
+        calledOnWith(spyGetter, myObject, []);
+        calledOnWith(defaultGetter, myObject, []);
+
+        expect(spyGetter).to.have.been.calledBefore(defaultGetter);
+
+        // Value returned by default setter is 1
+        expect(model2.value_, 'setter should have updated value').to.be.equal(1);
+      });
+
+      it('should hook the spy AFTER the real getter', function(){
+
+        const spyGetter = getSpy1(2);
+
+        let model2 = new PropertyModel(myObject, 'myFunction');
+
+        model2.observe(PropertyReplacer.TYPE.GETTER_AFTER, spyGetter);
+
+        expect(myObject.myFunction).to.equal(2);
+
+        calledOnWith(defaultGetter, myObject, []);
+        calledOnWith(spyGetter, myObject, [1]);
+
+        expect(defaultGetter).to.have.been.calledBefore(spyGetter);
+
+        // Value returned by default setter is 1
+        expect(model2.value_, 'setter should have updated value').to.be.equal(1);
+      });
+    });
   });
 });
 
@@ -264,19 +363,20 @@ describe('PropertyReplacer', function(){
 
   describe('#replace add replacer', function(){
 
-    it('should be able to add a replacer for a function : REPLACE', function(){
+    it('should add a replacer for a function : REPLACE', function(){
 
       propertyReplacer.replace(myObject, 'myFunction', spy, PropertyReplacer.TYPE.REPLACE);
 
-      return Promise.resolve(myObject.myFunction('a', 'b', 'c')).then((rValue) => {
+      let rValue = myObject.myFunction('a', 'b', 'c');
+
         expect(rValue).to.deep.equal(['a', 'b', 'c']);
 
         calledOnWith(spy, myObject, ['a', 'b', 'c'], 'Spy should have been called');
         notCalled(originalFn, 'Original function should be replaced with the Spy, therefore not been called');
-      });
+
     });
 
-    it('should be able to add a replacer for a function : AFTER', function(){
+    it('should add a replacer for a function : AFTER', function(){
 
       propertyReplacer.replace(myObject, 'myFunction', spy, PropertyReplacer.TYPE.AFTER);
 
@@ -290,7 +390,7 @@ describe('PropertyReplacer', function(){
       });
     });
 
-    it('should be able to add a replacer for a function : BEFORE', function(){
+    it('should add a replacer for a function : BEFORE', function(){
 
       propertyReplacer.replace(myObject, 'myFunction', spy, PropertyReplacer.TYPE.BEFORE);
 
@@ -304,7 +404,7 @@ describe('PropertyReplacer', function(){
       });
     });
 
-    it('should be able to add a replacer for a function : REPLACE', function(){
+    it('should add a replacer for a function setter/getter : REPLACE', function(){
 
       const myObject2 = {};
       let objVar;
@@ -319,13 +419,17 @@ describe('PropertyReplacer', function(){
       });
 
       propertyReplacer.replace(myObject2, 'myFunction', spy);
+      const spy2 = getSpy1();
 
-      return Promise.resolve(myObject2.myFunction('a', 'b', 'c')).then((rValue) => {
-        expect(rValue).to.deep.equal(['a', 'b', 'c']);
+      expect(myObject2.myFunction).to.equal(spy);
+      expect(objVar).to.equal(undefined);
 
-        calledOnWith(spy, myObject2, ['a', 'b', 'c'], 'Spy should have been called');
-        notCalled(originalFn, 'Original function should be replaced with the Spy, therefore not been called');
-      });
+      myObject2.myFunction = spy2;
+      expect(myObject2.myFunction).to.equal(spy2);
+      expect(objVar).to.equal(undefined);
+
+      myObject2.myFunction();
+      calledOnWith(spy2, myObject2, [], 'Spy2 should have been called');
     });
   });
 

@@ -1,31 +1,11 @@
 const pHash = '_$_$_hash';
 
 /**
- * Class used to handle property_ replacement in tests
- *
- * @usage:
- *
- *
- * @class
- * @constructor
- * @property {Map<string, PropertyModel>} properties_
- */
-function PropertyReplacer(){
-
-  this.properties_ = new Map();
-
-  this.hash_ = pHash;
-
-  this.nId = 0;
-}
-
-/**
  *
  * @param {object} obj
  * @param {string} property
  * @constructor
  * @class
- *
  */
 function PropertyModel(obj, property){
 
@@ -59,21 +39,26 @@ function PropertyModel(obj, property){
 
   /**
    * Store all the function used to hook the getter and setter, the call before / after
-   * @type {Map<PropertyReplacer.Type, function()>}
+   * @type {object}
    * @private
    */
-  this.replacers_ = new Map();
+  this.replacers_ = {};
 
   this.setupProperty_();
 }
 
 /**
  * Setup the property definition, and overwrite the object one
+ * Hook original setter/getter
+ * @private
  */
 PropertyModel.prototype.setupProperty_ = function(){
 
+  this.value_ = this.object_[this.property_];
+
   this.origin_ = Object.getOwnPropertyDescriptor(this.object_, this.property_);
 
+  delete this.object_[this.property_];
   Object.defineProperty(this.object_, this.property_, {
     set: (val) => this.setter_(val),
     get: () => this.getter_(),
@@ -91,6 +76,7 @@ PropertyModel.prototype.setupProperty_ = function(){
 /**
  * Call the setter sequence if any:
  * set_before(val) -> set -> set_after
+ * update the this.value_
  * @param {*} value
  * @private
  */
@@ -141,6 +127,7 @@ PropertyModel.prototype.observe = function(type, value){
 
   if (type === PropertyReplacer.TYPE.REPLACE){
     this.value_ = value;
+    this.replacers_ = {};
     return;
   }
 
@@ -165,7 +152,7 @@ PropertyModel.prototype.observe = function(type, value){
         throw new Error('value must be a function');
       }
 
-      this.value_ = function(){
+      this.setter_(function(){
         //replacer is called before Original, meaning that we can control all original arguments
         // Then replacer should return an Array of arguments
         let rValue = value.apply(obj, arguments);
@@ -176,7 +163,7 @@ PropertyModel.prototype.observe = function(type, value){
           rValue = [rValue];
         }
         return originValue.apply(obj, rValue);
-      };
+      });
       break;
 
     case PropertyReplacer.TYPE.AFTER:
@@ -186,10 +173,10 @@ PropertyModel.prototype.observe = function(type, value){
         throw new Error('value must be a function');
       }
 
-      this.value_ = function(){
+      this.setter_(function(){
         const rValue = originValue.apply(obj, arguments);
         return value.call(obj, rValue);
-      };
+      });
       break;
 
     default:
@@ -214,6 +201,34 @@ PropertyModel.prototype.restore = function(){
   this.value_ = null;
 
 };
+
+/**
+ * Class used to handle property_ replacement in tests
+ *
+ * @usage:
+ *
+ *
+ * @class
+ * @constructor
+ */
+function PropertyReplacer(){
+
+  /**
+   *
+   * @type {Map<string, PropertyModel>}
+   * @private
+   */
+  this.properties_ = new Map();
+
+  /**
+   * property name used to store it's id
+   * @type {string}
+   * @private
+   */
+  this.hash_ = pHash;
+
+  this.nId = 0;
+}
 
 /**
  * @enum {number}
