@@ -143,9 +143,6 @@ PropertyModel.prototype.observe = function(type, value){
     return;
   }
 
-
-  const originValue = this.origin_.value;
-
   switch (type) {
     case PropertyReplacer.TYPE.GETTER_BEFORE:
     case PropertyReplacer.TYPE.GETTER:
@@ -185,6 +182,15 @@ PropertyModel.prototype.getReplacer_ = function(type){
   return void 0;
 };
 
+/**
+ * Initialize a new function proxy, to be able to call the BEFORE / AFTER hooks
+ * Store the result in {@see this.fnProxy_}
+ *
+ * @param {object} obj - the object to set the proxy value on
+ * @param {function} value - the actual current value
+ * @return {function}
+ * @private
+ */
 PropertyModel.prototype.getFnProxy_ = function(obj, value){
 
   if (this.fnProxy_){
@@ -210,6 +216,8 @@ PropertyModel.prototype.getFnProxy_ = function(obj, value){
 
     return rValue;
   };
+
+  return this.fnProxy_;
 };
 
 /**
