@@ -71,6 +71,8 @@ PropertyModel.prototype.setupProperty_ = function(){
   if (typeof this.origin_.set === 'function'){
     this.observe(PropertyReplacer.TYPE.SETTER, this.origin_.set);
   }
+
+  this.fnProxy_ = undefined;
 };
 
 /**
@@ -125,16 +127,26 @@ PropertyModel.prototype.getter_ = function(){
  */
 PropertyModel.prototype.observe = function(type, value){
 
+  const obj = this.object_;
+
   if (type === PropertyReplacer.TYPE.REPLACE){
-    this.value_ = value;
     this.replacers_ = {};
+
+    if (typeof value === 'function'){
+      if (!this.fnProxy_ || this.value_ !== this.fnProxy_){
+        this.value_ = value;
+      }
+    }
+    else {
+      this.value_ = value;
+    }
     return;
   }
 
-  const obj = this.object_;
+
   const originValue = this.origin_.value;
 
-  switch(type) {
+  switch (type) {
     case PropertyReplacer.TYPE.GETTER_BEFORE:
     case PropertyReplacer.TYPE.GETTER:
     case PropertyReplacer.TYPE.GETTER_AFTER:
@@ -147,43 +159,61 @@ PropertyModel.prototype.observe = function(type, value){
       this.replacers_[type] = value;
       break;
 
+      // BEFORE and AFTER replacer should update the current value to fnProxy if not already
     case PropertyReplacer.TYPE.BEFORE:
-      if (typeof value !== 'function'){
-        throw new Error('value must be a function');
-      }
-
-      this.setter_(function(){
-        //replacer is called before Original, meaning that we can control all original arguments
-        // Then replacer should return an Array of arguments
-        let rValue = value.apply(obj, arguments);
-
-        // If we have a rValue but its not an array convert it to an array to be able to call it with the apply method
-        // void 0 is the only rValue that is useless to forward...
-        if (rValue !== void 0 && !Array.isArray(rValue)){
-          rValue = [rValue];
-        }
-        return originValue.apply(obj, rValue);
-      });
-      break;
-
     case PropertyReplacer.TYPE.AFTER:
-      //replacer is called after Original, meaning that it can only have access to the return value of the original function
 
       if (typeof value !== 'function'){
         throw new Error('value must be a function');
       }
 
-      this.setter_(function(){
-        const rValue = originValue.apply(obj, arguments);
-        return value.call(obj, rValue);
-      });
-      break;
+      this.replacers_[type] = value;
 
+      if (!this.fnProxy_ || this.value_ !== this.fnProxy_){
+        this.setter_(this.getFnProxy_(obj, this.value_));
+      }
+      break;
     default:
       throw new Error('Unkown type : ' + type + ' for callable');
   }
 };
 
+PropertyModel.prototype.getReplacer_ = function(type){
+  if (typeof this.replacers_[type] === 'function'){
+    return this.replacers_[type];
+  }
+  return void 0;
+};
+
+PropertyModel.prototype.getFnProxy_ = function(obj, value){
+
+  if (this.fnProxy_){
+    return this.fnProxy_;
+  }
+
+  const getReplacer_ = this.getReplacer_.bind(this);
+
+  const proxy = function(){
+    const before = getReplacer_(PropertyReplacer.TYPE.BEFORE);
+
+    let rValue = Array.prototype.slice.call(arguments);
+
+    if (before){
+      rValue = before.apply(obj, rValue);
+    }
+
+    rValue = value.apply(obj, rValue);
+
+    const after = getReplacer_(PropertyReplacer.TYPE.AFTER);
+    if (after){
+      rValue = after.apply(obj, [rValue]);
+    }
+
+    return rValue;
+  };
+
+  this.fnProxy_ = proxy;
+};
 
 /**
  * Reset the value of the object
@@ -280,7 +310,7 @@ PropertyReplacer.prototype.replace = function(object, property, replacer, type){
 PropertyReplacer.prototype.restore = function(object, property){
   const key = this.getKey_(object, property, false);
   if (this.hasKey_(key)){
-    let model = this.properties_.get(key);
+    const model = this.properties_.get(key);
     model.restore();
     return this.properties_.delete(key);
   }
@@ -292,7 +322,7 @@ PropertyReplacer.prototype.restore = function(object, property){
  */
 PropertyReplacer.prototype.restoreAll = function(){
   this.properties_.forEach(propertyModel => {
-      propertyModel.restore();
+    propertyModel.restore();
   });
   this.properties_.clear();
 };

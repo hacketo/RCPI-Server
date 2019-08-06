@@ -88,15 +88,15 @@ describe('PropertyModel', function(){
     it('should have a list of replaced properties', function(){
       expect(model.object_).to.be.equal(myObject);
 
-      let setterSpy = sinon.spy(function(val){
+      const setterSpy = sinon.spy(function(val){
         return val;
       });
-      let getterSpy = getSpy1();
+      const getterSpy = getSpy1();
 
       model.setter_ = setterSpy;
       model.getter_ = getterSpy;
 
-      let fn = myObject.myFunction;
+      const fn = myObject.myFunction;
       expect(fn).to.equal(1);
       myObject.myFunction = originalFn;
 
@@ -124,7 +124,7 @@ describe('PropertyModel', function(){
       it('should bind the setter on this.setter_', function(){
         expect(model.object_).to.be.equal(myObject);
 
-        let setterSpy = sinon.spy(function(val){
+        const setterSpy = sinon.spy(function(val){
           this.value_ = val;
           return val;
         });
@@ -143,14 +143,14 @@ describe('PropertyModel', function(){
       it('should bind the getter on this.getter_', function(){
         expect(model.object_).to.be.equal(myObject);
 
-        let getterSpy = sinon.spy(function(){
+        const getterSpy = sinon.spy(function(){
           return 1;
         });
 
         model.getter_ = getterSpy;
 
         // resolve a value;
-        let fn = myObject.myFunction;
+        const fn = myObject.myFunction;
         expect(fn).to.equal(1);
 
         calledOnWith(getterSpy, model, []);
@@ -171,14 +171,14 @@ describe('PropertyModel', function(){
         // Create new Object
         defaultSetter.resetHistory();
         Object.defineProperty(myObject, 'myFunction', {
-          set:defaultSetter,
-          configurable:true,
+          set: defaultSetter,
+          configurable: true,
         });
       });
 
       it('should hook the original setter to a SETTER replacer', function(){
 
-        let model2 = new PropertyModel(myObject, 'myFunction');
+        const model2 = new PropertyModel(myObject, 'myFunction');
 
         expect(model2.replacers_[PropertyReplacer.TYPE.SETTER], 'should have a default GETTER replacer').to.equal(defaultSetter);
 
@@ -194,7 +194,7 @@ describe('PropertyModel', function(){
       it('should hook the spy BEFORE the real setter', function(){
         const spySetter = getSpy1(2);
 
-        let model2 = new PropertyModel(myObject, 'myFunction');
+        const model2 = new PropertyModel(myObject, 'myFunction');
 
         model2.observe(PropertyReplacer.TYPE.SETTER_BEFORE, spySetter);
 
@@ -211,7 +211,7 @@ describe('PropertyModel', function(){
       it('should hook the spy AFTER the real setter', function(){
         const spySetter = getSpy1(2);
 
-        let model2 = new PropertyModel(myObject, 'myFunction');
+        const model2 = new PropertyModel(myObject, 'myFunction');
 
         model2.observe(PropertyReplacer.TYPE.SETTER_AFTER, spySetter);
 
@@ -233,14 +233,14 @@ describe('PropertyModel', function(){
         defaultGetter.resetHistory();
 
         Object.defineProperty(myObject, 'myFunction', {
-          get:defaultGetter,
-          configurable:true,
+          get: defaultGetter,
+          configurable: true,
         });
       });
 
       it('should hook the original getter to a GETTER replacer', function(){
 
-        let model2 = new PropertyModel(myObject, 'myFunction');
+        const model2 = new PropertyModel(myObject, 'myFunction');
 
         expect(model2.replacers_[PropertyReplacer.TYPE.GETTER], 'should have a default GETTER replacer').to.equal(defaultGetter);
 
@@ -254,7 +254,7 @@ describe('PropertyModel', function(){
 
         const spyGetter = getSpy1(2);
 
-        let model2 = new PropertyModel(myObject, 'myFunction');
+        const model2 = new PropertyModel(myObject, 'myFunction');
 
         model2.observe(PropertyReplacer.TYPE.GETTER_BEFORE, spyGetter);
 
@@ -273,7 +273,7 @@ describe('PropertyModel', function(){
 
         const spyGetter = getSpy1(2);
 
-        let model2 = new PropertyModel(myObject, 'myFunction');
+        const model2 = new PropertyModel(myObject, 'myFunction');
 
         model2.observe(PropertyReplacer.TYPE.GETTER_AFTER, spyGetter);
 
@@ -367,12 +367,12 @@ describe('PropertyReplacer', function(){
 
       propertyReplacer.replace(myObject, 'myFunction', spy, PropertyReplacer.TYPE.REPLACE);
 
-      let rValue = myObject.myFunction('a', 'b', 'c');
+      const rValue = myObject.myFunction('a', 'b', 'c');
 
-        expect(rValue).to.deep.equal(['a', 'b', 'c']);
+      expect(rValue).to.deep.equal(['a', 'b', 'c']);
 
-        calledOnWith(spy, myObject, ['a', 'b', 'c'], 'Spy should have been called');
-        notCalled(originalFn, 'Original function should be replaced with the Spy, therefore not been called');
+      calledOnWith(spy, myObject, ['a', 'b', 'c'], 'Spy should have been called');
+      notCalled(originalFn, 'Original function should be replaced with the Spy, therefore not been called');
 
     });
 
@@ -410,12 +410,12 @@ describe('PropertyReplacer', function(){
       let objVar;
       Object.defineProperty(myObject2, 'myFunction', {
         configurable: true,
-        set: function(val){
+        set(val){
           objVar = val;
         },
-        get: function(){
+        get(){
           return objVar;
-        }
+        },
       });
 
       propertyReplacer.replace(myObject2, 'myFunction', spy);
@@ -458,7 +458,7 @@ describe('PropertyReplacer', function(){
 
       propertyReplacer.replace(myObject, 'myFunction', spy, PropertyReplacer.TYPE.AFTER);
 
-      expect(propertyReplacer.properties_.get(myObject[propertyReplacer.hash_]))
+      expect(propertyReplacer.properties_.get(myObject[propertyReplacer.hash_]));
 
       propertyReplacer.restore(myObject, 'myFunction');
 
@@ -479,12 +479,12 @@ describe('PropertyReplacer', function(){
       let objVar;
       Object.defineProperty(myObject2, 'myFunction', {
         configurable: true,
-        set: function(val){
+        set(val){
           objVar = val;
         },
-        get: function(){
+        get(){
           return objVar;
-        }
+        },
       });
 
       myObject2.myFunction = originalCopy_;
