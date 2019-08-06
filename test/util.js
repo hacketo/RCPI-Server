@@ -193,11 +193,10 @@ PropertyModel.prototype.getFnProxy_ = function(obj, value){
 
   const getReplacer_ = this.getReplacer_.bind(this);
 
-  const proxy = function(){
-    const before = getReplacer_(PropertyReplacer.TYPE.BEFORE);
-
+  this.fnProxy_ = function(){
     let rValue = Array.prototype.slice.call(arguments);
 
+    const before = getReplacer_(PropertyReplacer.TYPE.BEFORE);
     if (before){
       rValue = before.apply(obj, rValue);
     }
@@ -211,8 +210,6 @@ PropertyModel.prototype.getFnProxy_ = function(obj, value){
 
     return rValue;
   };
-
-  this.fnProxy_ = proxy;
 };
 
 /**

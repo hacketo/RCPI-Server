@@ -11,7 +11,7 @@ chai.use(sinonChai);
 const should = chai.should();
 const expect = chai.expect;
 
-
+const nutil = require('util');
 const util = require('./util');
 const PropertyReplacer = util.PropertyReplacer;
 const PropertyModel = util.PropertyModel;
@@ -209,6 +209,40 @@ describe('PropertyModel', function(){
       });
 
       it('should hook the spy AFTER the real setter', function(){
+        const spySetter = getSpy1(2);
+
+        const model2 = new PropertyModel(myObject, 'myFunction');
+
+        model2.observe(PropertyReplacer.TYPE.SETTER_AFTER, spySetter);
+
+        myObject.myFunction = 3;
+        calledOnWith(defaultSetter, myObject, [3]);
+        calledOnWith(spySetter, myObject, [1]);
+
+        expect(defaultSetter).to.have.been.calledBefore(spySetter);
+
+        // Value returned by spy setter is 2
+        expect(model2.value_, 'setter should have updated value').to.be.equal(2);
+      });
+
+      it.skip('should hook the spy AFTER the real setter', function(){
+
+        const Parent = function(){
+          this.name = "n";
+
+          Object.defineProperty(this, 'myFunction', {
+            set: defaultSetter,
+            configurable: true,
+          });
+        };
+
+        MyObject = function(){
+          Parent.call(this);
+        };
+        nutil.inherits(MyObject, Parent);
+
+        myObject = new MyObject();
+
         const spySetter = getSpy1(2);
 
         const model2 = new PropertyModel(myObject, 'myFunction');
