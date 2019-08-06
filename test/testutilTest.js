@@ -99,6 +99,10 @@ describe('PropertyModel', function(){
       model = new PropertyModel(myObject, PNAME);
     });
 
+    afterEach(function(){
+
+    });
+
     it('should initialize the object_ property', function(){
       expect(model.object_, 'the internal object_ reference should be equal to the same given in the constructor').to.equal(myObject);
     });
@@ -436,6 +440,28 @@ describe('PropertyModel', function(){
         expect(model2.value_, 'setter should have updated value').to.be.equal(1);
       });
     });
+
+
+    /**
+     * All the tests about the REPLACE replacement
+     */
+    describe('REPLACE', function(){
+      it('should replace the value of the property', function(){
+        //TODO write test
+      });
+
+      it('should not call setter when setting the new value of the property', function(){
+        //TODO write test
+      });
+
+      it('should not call getter when getting the new value of the property', function(){
+        //TODO write test
+      });
+
+      it('should clear all replacers already defined', function(){
+        //TODO write test
+      });
+    });
   });
 });
 
@@ -567,14 +593,13 @@ describe('PropertyReplacer', function(){
       });
 
       propertyReplacer.replace(myObject2, PNAME, spy);
-      const spy2 = getSpy1();
-
       expect(myObject2[PNAME]).to.equal(spy);
-      expect(objVar).to.equal(undefined);
+      expect(objVar, 'should not have changed, original setter not called').to.equal(undefined);
 
+      const spy2 = getSpy1();
       myObject2[PNAME] = spy2;
       expect(myObject2[PNAME]).to.equal(spy2);
-      expect(objVar).to.equal(undefined);
+      expect(objVar, 'should not have changed, original setter not called').to.equal(undefined);
 
       myObject2[PNAME]();
       calledOnWith(spy2, myObject2, [], 'Spy2 should have been called');

@@ -166,6 +166,7 @@ PropertyModel.prototype.observe = function(type, value){
 
       this.replacers_[type] = value;
 
+      //Only set the proxy if not already equal to, will call the setter
       if (!this.fnProxy_ || this.value_ !== this.fnProxy_){
         this.setter_(this.getFnProxy_(obj, this.value_));
       }
@@ -333,9 +334,9 @@ PropertyReplacer.prototype.restoreAll = function(){
 };
 
 /**
- * REturn a unique has for an object_
+ * Return a unique has for an object
  * @param {object} object
- * @param {boolean=} create=true
+ * @param {boolean=} create=true - if true, create the hash for the object
  * @return {string}
  * @private
  */
@@ -380,7 +381,7 @@ PropertyReplacer.prototype.getKey_ = function(object, property, create){
   const hash = this.getHash_(object, create);
 
   if (!hash){
-    throw new Error('canfind a hash for ' + object);
+    throw new Error('can\'t find a hash for ' + object);
   }
 
   const key = hash + ':' + property;
