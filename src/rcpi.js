@@ -739,6 +739,7 @@ RCPI.prototype.clean_exit = function(){
     });
   }
   if (this.udpServer !== null) {
+    this.coucou.lol.equal(2);
     this.udpServer.close(function() {
       util.log('UDPServer closed!');
     });

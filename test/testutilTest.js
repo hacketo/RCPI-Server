@@ -11,6 +11,10 @@ chai.use(sinonChai);
 const should = chai.should();
 const expect = chai.expect;
 
+sinon.assert.expose(chai.assert, { prefix: "" });
+
+const assert = chai.assert;
+
 const nutil = require('util');
 const util = require('./util');
 const PropertyReplacer = util.PropertyReplacer;
@@ -53,16 +57,17 @@ const getSpy1 = function(a){
  * @param {string=} msg - msg to display in case of any error
  */
 const calledOnWith = function(spy, on, args, msg){
-  expect(spy, msg).calledOn(on);
+  expect(spy, msg).to.have.been.calledOn(on);
   expect(spy.lastCall.args, msg).to.deep.equal(!Array.isArray(args) ? [args] : args);
 };
 
 /**
  * Helper.. to expect a spy to not have been called
- * @param obj
+ * @param {spy} spy
+ * @param {string=} msg
  */
 const notCalled = function(spy, msg){
-  expect(spy, msg).not.called;
+  expect(spy, msg).to.have.not.been.called;
 };
 
 /**
@@ -72,6 +77,7 @@ const notCalled = function(spy, msg){
 const PNAME = 'myFunction';
 
 describe('PropertyModel', function(){
+
   /**
    * Model used in tests
    * @type {PropertyModel}
@@ -79,12 +85,22 @@ describe('PropertyModel', function(){
   let model;
 
   /**
-   * object to test the replacer on
+   * object to test the PropertyModel on
    * @type {object}
    */
   let myObject;
+
+  /**
+   * Original function of the myObject myFunction property
+   * @type {spy}
+   */
   let originalFn;
-  let origin;
+
+  /**
+   *
+   * @type {PropertyDescriptor}
+   */
+  let originalPropertyDescriptior;
 
   describe('construct', function(){
 
@@ -95,7 +111,7 @@ describe('PropertyModel', function(){
       myObject = {
         [PNAME]: originalFn,
       };
-      origin = Object.getOwnPropertyDescriptor(myObject, PNAME);
+      originalPropertyDescriptior = Object.getOwnPropertyDescriptor(myObject, PNAME);
       model = new PropertyModel(myObject, PNAME);
     });
 
@@ -110,7 +126,7 @@ describe('PropertyModel', function(){
       expect(model.property_, 'the internal object_ reference should be equal to the same given in the constructor').to.equal(PNAME);
     });
     it('should initialize the origin_ property', function(){
-      expect(model.origin_, 'the origin_ value should be the PropertyDescriptor of the original object').to.deep.equal(origin);
+      expect(model.origin_, 'the origin_ value should be the original PropertyDescriptor of the object').to.deep.equal(originalPropertyDescriptior);
     });
     it('should initialize the initial value_ property', function(){
       expect(model.value_, 'the value_ should be the one retrieved on the object').to.equal(myObject[PNAME]);
@@ -133,6 +149,9 @@ describe('PropertyModel', function(){
 
     describe('setter_', function(){
       it('should bind the setter on this.setter_', function(){
+
+        const value = 1;
+
         const setterSpy = sinon.spy(function(val){
           this.value_ = val;
           return val;
@@ -141,13 +160,15 @@ describe('PropertyModel', function(){
 
         expect(myObject.myFunction).to.equal(originalFn);
 
-        myObject.myFunction = 1;
+        myObject.myFunction = value;
 
-        calledOnWith(setterSpy, model, [1]);
-        expect(model.value_).to.equal(1);
+        calledOnWith(setterSpy, model, [value]);
+        expect(model.value_).to.equal(value);
       });
 
       it('should add a SETTER replacer', function(){
+
+        const value = 1;
 
         const setterSpy = sinon.spy(function(val){
           return val;
@@ -161,10 +182,10 @@ describe('PropertyModel', function(){
 
         const model2 = new PropertyModel(myObject2, PNAME);
 
-        myObject2[PNAME] = 1;
+        myObject2[PNAME] = value;
 
-        calledOnWith(setterSpy, myObject2, [1]);
-        expect(model2.value_).to.equal(1);
+        calledOnWith(setterSpy, myObject2, [value]);
+        expect(model2.value_).to.equal(value);
       });
     });
 
@@ -302,7 +323,7 @@ describe('PropertyModel', function(){
         calledOnWith(defaultSetter, myObject, [3]);
         calledOnWith(spySetter, myObject, [1]);
 
-        expect(defaultSetter).to.have.been.calledBefore(spySetter);
+        expect(defaultSetter).calledBefore(spySetter);
 
         // Value returned by spy setter is 2
         expect(model2.value_, 'setter should have updated value').to.be.equal(2);
@@ -311,7 +332,7 @@ describe('PropertyModel', function(){
       it('should hook the spy AFTER the real setter inherited', function(){
 
         const Parent = function(){
-          this.name = "n";
+          this.name = 'n';
 
           Object.defineProperty(this, PNAME, {
             set: defaultSetter,
