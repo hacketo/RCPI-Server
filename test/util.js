@@ -65,11 +65,13 @@ PropertyModel.prototype.setupProperty_ = function(){
     configurable: true,
   });
 
-  if (typeof this.origin_.get === 'function'){
-    this.observe(PropertyReplacer.TYPE.GETTER, this.origin_.get);
-  }
-  if (typeof this.origin_.set === 'function'){
-    this.observe(PropertyReplacer.TYPE.SETTER, this.origin_.set);
+  if (this.origin_){
+    if (typeof this.origin_.get === 'function'){
+      this.observe(PropertyReplacer.TYPE.GETTER, this.origin_.get);
+    }
+    if (typeof this.origin_.set === 'function'){
+      this.observe(PropertyReplacer.TYPE.SETTER, this.origin_.set);
+    }
   }
 
   this.fnProxy_ = undefined;
@@ -228,8 +230,9 @@ PropertyModel.prototype.getFnProxy_ = function(obj, value){
  */
 PropertyModel.prototype.restore = function(){
   delete this.object_[this.property_];
-  Object.defineProperty(this.object_, this.property_, this.origin_);
-
+  if (this.origin_){
+    Object.defineProperty(this.object_, this.property_, this.origin_);
+  }
   // Clean references
   this.object_ = null;
   this.property_ = null;
@@ -374,8 +377,8 @@ PropertyReplacer.prototype.getKey_ = function(object, property, create){
     throw new Error('property_ has to be a string');
   }
 
-  if (!(property in object)){
-    throw new Error('Object dont have property_ :' + property);
+  if (!object.hasOwnProperty(property)){
+    throw new Error('Object dont have property :' + property);
   }
 
   const hash = this.getHash_(object, create);
