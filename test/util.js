@@ -2,7 +2,8 @@
  * @fileoverview
  * Test helper to replace properties and restore them at the end of a test
  *
- *
+ * The PropertyReplacer is a test helper to replace object properties.
+ * It helps in restoring the original state of the property with a simple restore() method
  *
  *
  */
@@ -31,272 +32,141 @@ const ReplaceType = {
 };
 
 /**
- *
- * @param {object} obj
- * @param {string} property
- * @constructor
- * @class
- */
-function PropertyModel(obj, property){
-
-  /**
-   * Reference to the object
-   * @type {object}
-   * @private
-   */
-  this.object_ = obj;
-
-  /**
-   * Property name
-   * @type {string}
-   * @private
-   */
-  this.property_ = property;
-
-  /**
-   * Store the original property descriptor of the object
-   * @type {PropertyDescriptor}
-   * @private
-   */
-  this.origin_ = undefined;
-
-  /**
-   * Store all the function used to hook the getter and setter, the call before / after
-   * @type {object}
-   * @private
-   */
-  this.replacers_ = {};
-
-  /**
-   * Contain the current mocked value of the object
-   * @type {*}
-   * @private
-   */
-  this.value_ = undefined;
-
-  /**
-   * internal flag to call {@see #setupProperty_}
-   * @type {boolean}
-   */
-  this.initialized_ = false;
-
-  if (this.object_.hasOwnProperty(this.property_)){
-    this.setupProperty_();
-  }
-}
-
-/**
- * Setup the property definition, and overwrite the object one
- * Hook original setter/getter
- * @private
- */
-PropertyModel.prototype.setupProperty_ = function(){
-
-  this.value_ = this.object_[this.property_];
-
-  this.origin_ = Object.getOwnPropertyDescriptor(this.object_, this.property_);
-
-  delete this.object_[this.property_];
-  Object.defineProperty(this.object_, this.property_, {
-    set: (val) => this.setter_(val),
-    get: () => this.getter_(),
-    configurable: true,
-  });
-
-  this.fnProxy_ = undefined;
-
-  this.initialized_ = true;
-
-  if (this.origin_){
-    if (typeof this.origin_.get === 'function'){
-      this.replace(ReplaceType.GETTER, this.origin_.get);
-    }
-    if (typeof this.origin_.set === 'function'){
-      this.replace(ReplaceType.SETTER, this.origin_.set);
-    }
-  }
-
-
-};
-
-/**
- * Call the setter sequence if any:
- * set_before(val) -> set -> set_after
- * update the this.value_
- * @param {*} value
- * @private
- */
-PropertyModel.prototype.setter_ = function(value){
-  if (typeof this.replacers_[ReplaceType.SETTER_BEFORE] === 'function'){
-    value = this.replacers_[ReplaceType.SETTER_BEFORE].call(this.object_, value);
-  }
-  if (typeof this.replacers_[ReplaceType.SETTER] === 'function'){
-    const r = this.replacers_[ReplaceType.SETTER].call(this.object_, value);
-    if (r !== undefined){
-      value = r;
-    }
-  }
-  if (typeof this.replacers_[ReplaceType.SETTER_AFTER] === 'function'){
-    value = this.replacers_[ReplaceType.SETTER_AFTER].call(this.object_, value);
-  }
-
-  this.value_ = value;
-};
-
-/**
- *
- * Call the getter sequence if any:
- * get_before
- * get
- * get_after
- * @return {*}
- * @private
- */
-PropertyModel.prototype.getter_ = function(){
-  let value = this.value_;
-  // Should get_before have access to the value ? the real getter will not use any value
-  if (typeof this.replacers_[ReplaceType.GETTER_BEFORE] === 'function'){
-    value = this.replacers_[ReplaceType.GETTER_BEFORE].call(this.object_);
-  }
-  if (typeof this.replacers_[ReplaceType.GETTER] === 'function'){
-    value = this.replacers_[ReplaceType.GETTER].call(this.object_);
-  }
-  if (typeof this.replacers_[ReplaceType.GETTER_AFTER] === 'function'){
-    value = this.replacers_[ReplaceType.GETTER_AFTER].call(this.object_, value);
-  }
-  return value;
-};
-
-/**
- * Set the callack for hook or replace current value
- * @param {ReplaceType} type
- * @param {function()|*} value
- */
-PropertyModel.prototype.replace = function(type, value){
-
-  if (!this.initialized_){
-    this.setupProperty_();
-  }
-
-  const obj = this.object_;
-
-  if (type === ReplaceType.REPLACE){
-    this.replacers_ = {};
-
-    if (typeof value === 'function'){
-      if (!this.fnProxy_ || this.value_ !== this.fnProxy_){
-        this.value_ = value;
-      }
-    }
-    else {
-      this.value_ = value;
-    }
-    return;
-  }
-
-  switch (type) {
-    case ReplaceType.GETTER_BEFORE:
-    case ReplaceType.GETTER:
-    case ReplaceType.GETTER_AFTER:
-    case ReplaceType.SETTER_BEFORE:
-    case ReplaceType.SETTER:
-    case ReplaceType.SETTER_AFTER:
-      if (typeof value !== 'function'){
-        throw new Error('value must be a function');
-      }
-      this.replacers_[type] = value;
-      break;
-
-      // BEFORE and AFTER replacer should update the current value to fnProxy if not already
-    case ReplaceType.BEFORE:
-    case ReplaceType.AFTER:
-
-      if (typeof value !== 'function'){
-        throw new Error('value must be a function');
-      }
-
-      this.replacers_[type] = value;
-
-      //Only set the proxy if not already equal to, will call the setter
-      if (!this.fnProxy_ || this.value_ !== this.fnProxy_){
-        this.setter_(this.getFnProxy_(obj, this.value_));
-      }
-      break;
-
-    default:
-      throw new Error('Unkown type : ' + type + ' for callable');
-  }
-};
-
-PropertyModel.prototype.getReplacer_ = function(type){
-  if (typeof this.replacers_[type] === 'function'){
-    return this.replacers_[type];
-  }
-  return void 0;
-};
-
-/**
- * Initialize a new function proxy, to be able to call the BEFORE / AFTER hooks
- * Store the result in {@see this.fnProxy_}
- *
- * @param {object} obj - the object to set the proxy value on
- * @param {function} value - the actual current value
- * @return {function}
- * @private
- */
-PropertyModel.prototype.getFnProxy_ = function(obj, value){
-
-  if (this.fnProxy_){
-    return this.fnProxy_;
-  }
-
-  const getReplacer_ = this.getReplacer_.bind(this);
-
-  this.fnProxy_ = function(){
-    let rValue = Array.prototype.slice.call(arguments);
-
-    const before = getReplacer_(ReplaceType.BEFORE);
-    if (before){
-      rValue = before.apply(obj, rValue);
-    }
-
-    rValue = value.apply(obj, rValue);
-
-    const after = getReplacer_(ReplaceType.AFTER);
-    if (after){
-      rValue = after.apply(obj, [rValue]);
-    }
-
-    return rValue;
-  };
-
-  return this.fnProxy_;
-};
-
-/**
- * Reset the value of the object
- * Clean any reference to that object
- * A restore is supposed be called before the destroy of that model
- */
-PropertyModel.prototype.restore = function(){
-  delete this.object_[this.property_];
-  if (this.origin_){
-    Object.defineProperty(this.object_, this.property_, this.origin_);
-  }
-  // Clean references
-  this.object_ = null;
-  this.property_ = null;
-  this.origin_ = null;
-  this.value_ = null;
-
-};
-
-
-/**
- * Class used to handle property_ replacement in tests
+ * Helper class to replace properties and restore them at the end of a test
  *
  * @usage:
+ *<pre>
+ *  const replacer = new PropertyReplacer();
  *
+ *  before() {
+ *    replacer.replace(Math, 'random', function() {
+ *      return 4;  // pure random.
+ *    });
+ *  },
+ *
+ *  testRandomness(){
+ *    assertEquals(4, Math.random());
+ *  },
+ *
+ *  after(){
+ *    replacer.restore(Math, 'random');
+ *    //replacer.restoreAll();
+ *  }
+ *</pre>
+ *
+ *
+ * Instead of replacing the property you can proxy the function itself
+ *
+ * BEFORE : called before the function,
+ * args : forwarded
+ * rValue : list of function args
+ *
+ * @example :
+ *   <pre>
+ *      replacer.replace(console, 'log', function(msg) {
+ *        return "haha";
+ *      }, ReplaceType.BEFORE);
+ *
+ *      console.log('something'); // logs haha
+ *
+ *   </pre>
+ *
+ *
+ * REPLACE: called instead of the original function,
+ *
+ * AFTER : called after the original function
+ * args : forwarded
+ * rValue : list of function args
+ *
+ * @example :
+ *   <pre>
+ *      replacer.replace(Number.prototype, 'toString', function(a) {
+ *        if (a === '0'){
+ *          return "haha";
+ *        }
+ *        return a
+ *      }, ReplaceType.AFTER);
+ *
+ *      let a = 0;
+ *
+ *      console.log(a+''); // logs haha
+ *
+ *   </pre>
+ *
+ *
+ * Or proxy the setter/getter of the property
+ *
+ * SETTER_BEFORE : called before the original SETTER, with the same arguments
+ * args : forwarded
+ * rValue : will be the one given to the SETTER function
+ *
+ * @example :
+ *   <pre>
+ *
+ *      let originalFn = console.log;
+ *
+ *      replacer.replace(console, 'log', function(a) {
+ *        return originalFn;
+ *      }, ReplaceType.SETTER_BEFORE);
+ *
+ *      console.log = 0;
+ *
+ *      console.log('haha'); // logs haha
+ *
+ *   </pre>
+ *
+ * SETTER : called instead of the original SETTER
+ * args : forwarded
+ * rValue : will be the one given to the SETTER_AFTER
+ *
+ * @example :
+ *   <pre>
+ *
+ *      let originalFn = console.log;
+ *
+ *      replacer.replace(console, 'log', function(a) {
+ *        return originalFn;
+ *      }, ReplaceType.SETTER);
+ *
+ *      console.log = 0;
+ *
+ *      console.log('haha'); // logs haha
+ *
+ *   </pre>
+ *
+ * SETTER_AFTER : called after the SETTER function
+ * args : forwarded
+ * rValue : will be the one stored as this.value_
+ *
+ * @example :
+ *   <pre>
+ *
+ *      let originalFn = console.log;
+ *
+ *      replacer.replace(console, 'log', function(a) {
+ *        return originalFn;
+ *      }, ReplaceType.SETTER_AFTER);
+ *
+ *      console.log = 0;
+ *
+ *      console.log('haha'); // logs haha
+ *
+ *   </pre>
+ *
+ *
+ * GETTER_BEFORE : called before the original GETTER,
+ * args : internal value stored,
+ * rValue : no used
+ *
+ * GETTER : called instead of the original GETTER
+ * args : none,
+ * rValue : will be the one given to the GETTER_AFTER
+ *
+ * GETTER_AFTER : called after the GETTER function
+ * args : GETTER rValue,
+ * rValue : will be the one given to the SETTER_AFTER
+ *
+ * @TODO: restore properties by object, remove default hash property on mocked objects
  *
  * @class
  * @constructor
@@ -304,7 +174,7 @@ PropertyModel.prototype.restore = function(){
 function PropertyReplacer(){
 
   /**
-   *
+   * contain the list of all the properties replaced
    * @type {Map<string, PropertyModel>}
    * @private
    */
@@ -435,6 +305,273 @@ PropertyReplacer.prototype.getKey_ = function(object, property, create){
 
 PropertyReplacer.prototype.hasKey_ = function(key){
   return this.properties_.has(key);
+};
+
+/**
+ *
+ * @param {object} obj
+ * @param {string} property
+ * @constructor
+ * @class
+ */
+function PropertyModel(obj, property){
+
+  /**
+   * Reference to the object
+   * @type {object}
+   * @private
+   */
+  this.object_ = obj;
+
+  /**
+   * Property name
+   * @type {string}
+   * @private
+   */
+  this.property_ = property;
+
+  /**
+   * Store the original property descriptor of the object
+   * @type {PropertyDescriptor}
+   * @private
+   */
+  this.origin_ = undefined;
+
+  /**
+   * Store all the function used to hook the getter and setter, the call before / after
+   * @type {object}
+   * @private
+   */
+  this.replacers_ = {};
+
+  /**
+   * Contain the current mocked value of the object
+   * @type {*}
+   * @private
+   */
+  this.value_ = undefined;
+
+  /**
+   * internal flag to call {@see #setupProperty_}
+   * @type {boolean}
+   */
+  this.initialized_ = false;
+
+  if (this.object_.hasOwnProperty(this.property_)){
+    this.setupProperty_();
+  }
+}
+
+/**
+ * Setup the property definition, and overwrite the object one
+ * Hook original setter/getter
+ * @private
+ */
+PropertyModel.prototype.setupProperty_ = function(){
+
+  this.value_ = this.object_[this.property_];
+
+  this.origin_ = Object.getOwnPropertyDescriptor(this.object_, this.property_);
+
+  delete this.object_[this.property_];
+  Object.defineProperty(this.object_, this.property_, {
+    set: (function(model){
+      return function(val){
+        return model.setter_.apply(model, arguments);
+      };
+    })(this),
+    get: () => this.getter_(),
+    configurable: true,
+  });
+
+  this.fnProxy_ = undefined;
+
+  // need to update the initialized flag here to be able to replace the setter/getter if any
+  this.initialized_ = true;
+
+  if (this.origin_){
+    if (typeof this.origin_.get === 'function'){
+      this.replace(ReplaceType.GETTER, this.origin_.get);
+    }
+    if (typeof this.origin_.set === 'function'){
+      this.replace(ReplaceType.SETTER, this.origin_.set);
+    }
+  }
+
+
+};
+
+/**
+ * Call the setter sequence if any:
+ * set_before(val) -> set -> set_after
+ * update the this.value_
+ * @param {*} value
+ * @private
+ */
+PropertyModel.prototype.setter_ = function(value){
+  if (typeof this.replacers_[ReplaceType.SETTER_BEFORE] === 'function'){
+    value = this.replacers_[ReplaceType.SETTER_BEFORE].apply(this.object_, arguments);
+  }
+  if (typeof this.replacers_[ReplaceType.SETTER] === 'function'){
+    const r = this.replacers_[ReplaceType.SETTER].apply(this.object_, arguments);
+    if (r !== undefined){
+      value = r;
+    }
+  }
+  if (typeof this.replacers_[ReplaceType.SETTER_AFTER] === 'function'){
+    value = this.replacers_[ReplaceType.SETTER_AFTER].apply(this.object_, arguments);
+  }
+
+  this.value_ = value;
+};
+
+/**
+ *
+ * Call the getter sequence if any:
+ * get_before
+ * get
+ * get_after
+ * @return {*}
+ * @private
+ */
+PropertyModel.prototype.getter_ = function(){
+  let value = this.value_;
+  // Should get_before have access to the value ? the real getter will not use any value
+  if (typeof this.replacers_[ReplaceType.GETTER_BEFORE] === 'function'){
+    value = this.replacers_[ReplaceType.GETTER_BEFORE].call(this.object_);
+  }
+  if (typeof this.replacers_[ReplaceType.GETTER] === 'function'){
+    value = this.replacers_[ReplaceType.GETTER].call(this.object_);
+  }
+  if (typeof this.replacers_[ReplaceType.GETTER_AFTER] === 'function'){
+    value = this.replacers_[ReplaceType.GETTER_AFTER].call(this.object_, value);
+  }
+  //TODO-tt should GETTER override this.value_ ?
+  return value;
+};
+
+/**
+ * Set the callack for hook or replace current value
+ * @param {ReplaceType} type
+ * @param {function()|*} value
+ */
+PropertyModel.prototype.replace = function(type, value){
+
+  if (!this.initialized_){
+    this.setupProperty_();
+  }
+
+  const obj = this.object_;
+
+  if (type === ReplaceType.REPLACE){
+    this.replacers_ = {};
+
+    if (typeof value === 'function'){
+      if (!this.fnProxy_ || this.value_ !== this.fnProxy_){
+        this.value_ = value;
+      }
+    }
+    else {
+      this.value_ = value;
+    }
+    return;
+  }
+
+  switch (type) {
+    case ReplaceType.GETTER_BEFORE:
+    case ReplaceType.GETTER:
+    case ReplaceType.GETTER_AFTER:
+    case ReplaceType.SETTER_BEFORE:
+    case ReplaceType.SETTER:
+    case ReplaceType.SETTER_AFTER:
+      if (typeof value !== 'function'){
+        throw new Error('value must be a function');
+      }
+      this.replacers_[type] = value;
+      break;
+
+      // BEFORE and AFTER replacer should update the current value to fnProxy if not already
+    case ReplaceType.BEFORE:
+    case ReplaceType.AFTER:
+
+      if (typeof value !== 'function'){
+        throw new Error('value must be a function');
+      }
+
+      this.replacers_[type] = value;
+
+      //Only set the proxy if not already equal to, will call the setter
+      if (!this.fnProxy_ || this.value_ !== this.fnProxy_){
+        this.setter_(this.getFnProxy_(obj, this.value_));
+      }
+      break;
+
+    default:
+      throw new Error('Unkown type : ' + type + ' for callable');
+  }
+};
+
+PropertyModel.prototype.getReplacer_ = function(type){
+  if (typeof this.replacers_[type] === 'function'){
+    return this.replacers_[type];
+  }
+  return void 0;
+};
+
+/**
+ * Initialize a new function proxy, to be able to call the BEFORE / AFTER hooks
+ * Store the result in {@see this.fnProxy_}
+ *
+ * @param {object} obj - the object to set the proxy value on
+ * @param {function} value - the actual current value
+ * @return {function}
+ * @private
+ */
+PropertyModel.prototype.getFnProxy_ = function(obj, value){
+
+  if (this.fnProxy_){
+    return this.fnProxy_;
+  }
+
+  const getReplacer_ = this.getReplacer_.bind(this);
+
+  this.fnProxy_ = function(){
+    let rValue = Array.prototype.slice.call(arguments);
+
+    const before = getReplacer_(ReplaceType.BEFORE);
+    if (before){
+      rValue = before.apply(obj, rValue);
+    }
+
+    rValue = value.apply(obj, rValue);
+
+    const after = getReplacer_(ReplaceType.AFTER);
+    if (after){
+      rValue = after.apply(obj, [rValue]);
+    }
+
+    return rValue;
+  };
+
+  return this.fnProxy_;
+};
+
+/**
+ * Reset the value of the object
+ * Clean any reference to that object
+ * A restore is supposed be called before the destroy of that model
+ */
+PropertyModel.prototype.restore = function(){
+  delete this.object_[this.property_];
+  if (this.origin_){
+    Object.defineProperty(this.object_, this.property_, this.origin_);
+  }
+  // Clean references
+  this.object_ = null;
+  this.property_ = null;
+  this.origin_ = null;
+  this.value_ = null;
+
 };
 
 module.exports = {
