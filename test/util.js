@@ -8,6 +8,27 @@
  */
 
 
+/**
+ * Property name used to store the unique id for a model
+ * @const
+ * @type {string}
+ */
+const pHash = '_$_$_hash';
+
+/**
+ * @enum {number}
+ */
+const ReplaceType = {
+  BEFORE: 0,
+  REPLACE: 1,
+  AFTER: 2,
+  GETTER_BEFORE: 3,
+  GETTER: 4,
+  GETTER_AFTER: 5,
+  SETTER_BEFORE: 6,
+  SETTER: 7,
+  SETTER_AFTER: 8,
+};
 
 /**
  *
@@ -40,6 +61,13 @@ function PropertyModel(obj, property){
   this.origin_ = undefined;
 
   /**
+   * Store all the function used to hook the getter and setter, the call before / after
+   * @type {object}
+   * @private
+   */
+  this.replacers_ = {};
+
+  /**
    * Contain the current mocked value of the object
    * @type {*}
    * @private
@@ -47,13 +75,14 @@ function PropertyModel(obj, property){
   this.value_ = undefined;
 
   /**
-   * Store all the function used to hook the getter and setter, the call before / after
-   * @type {object}
-   * @private
+   * internal flag to call {@see #setupProperty_}
+   * @type {boolean}
    */
-  this.replacers_ = {};
+  this.initialized_ = false;
 
-  this.setupProperty_();
+  if (this.object_.hasOwnProperty(this.property_)){
+    this.setupProperty_();
+  }
 }
 
 /**
@@ -74,16 +103,20 @@ PropertyModel.prototype.setupProperty_ = function(){
     configurable: true,
   });
 
+  this.fnProxy_ = undefined;
+
+  this.initialized_ = true;
+
   if (this.origin_){
     if (typeof this.origin_.get === 'function'){
-      this.observe(PropertyReplacer.TYPE.GETTER, this.origin_.get);
+      this.replace(ReplaceType.GETTER, this.origin_.get);
     }
     if (typeof this.origin_.set === 'function'){
-      this.observe(PropertyReplacer.TYPE.SETTER, this.origin_.set);
+      this.replace(ReplaceType.SETTER, this.origin_.set);
     }
   }
 
-  this.fnProxy_ = undefined;
+
 };
 
 /**
@@ -94,17 +127,17 @@ PropertyModel.prototype.setupProperty_ = function(){
  * @private
  */
 PropertyModel.prototype.setter_ = function(value){
-  if (typeof this.replacers_[PropertyReplacer.TYPE.SETTER_BEFORE] === 'function'){
-    value = this.replacers_[PropertyReplacer.TYPE.SETTER_BEFORE].call(this.object_, value);
+  if (typeof this.replacers_[ReplaceType.SETTER_BEFORE] === 'function'){
+    value = this.replacers_[ReplaceType.SETTER_BEFORE].call(this.object_, value);
   }
-  if (typeof this.replacers_[PropertyReplacer.TYPE.SETTER] === 'function'){
-    const r = this.replacers_[PropertyReplacer.TYPE.SETTER].call(this.object_, value);
+  if (typeof this.replacers_[ReplaceType.SETTER] === 'function'){
+    const r = this.replacers_[ReplaceType.SETTER].call(this.object_, value);
     if (r !== undefined){
       value = r;
     }
   }
-  if (typeof this.replacers_[PropertyReplacer.TYPE.SETTER_AFTER] === 'function'){
-    value = this.replacers_[PropertyReplacer.TYPE.SETTER_AFTER].call(this.object_, value);
+  if (typeof this.replacers_[ReplaceType.SETTER_AFTER] === 'function'){
+    value = this.replacers_[ReplaceType.SETTER_AFTER].call(this.object_, value);
   }
 
   this.value_ = value;
@@ -122,28 +155,32 @@ PropertyModel.prototype.setter_ = function(value){
 PropertyModel.prototype.getter_ = function(){
   let value = this.value_;
   // Should get_before have access to the value ? the real getter will not use any value
-  if (typeof this.replacers_[PropertyReplacer.TYPE.GETTER_BEFORE] === 'function'){
-    value = this.replacers_[PropertyReplacer.TYPE.GETTER_BEFORE].call(this.object_);
+  if (typeof this.replacers_[ReplaceType.GETTER_BEFORE] === 'function'){
+    value = this.replacers_[ReplaceType.GETTER_BEFORE].call(this.object_);
   }
-  if (typeof this.replacers_[PropertyReplacer.TYPE.GETTER] === 'function'){
-    value = this.replacers_[PropertyReplacer.TYPE.GETTER].call(this.object_);
+  if (typeof this.replacers_[ReplaceType.GETTER] === 'function'){
+    value = this.replacers_[ReplaceType.GETTER].call(this.object_);
   }
-  if (typeof this.replacers_[PropertyReplacer.TYPE.GETTER_AFTER] === 'function'){
-    value = this.replacers_[PropertyReplacer.TYPE.GETTER_AFTER].call(this.object_, value);
+  if (typeof this.replacers_[ReplaceType.GETTER_AFTER] === 'function'){
+    value = this.replacers_[ReplaceType.GETTER_AFTER].call(this.object_, value);
   }
   return value;
 };
 
 /**
  * Set the callack for hook or replace current value
- * @param {PropertyReplacer.TYPE} type
+ * @param {ReplaceType} type
  * @param {function()|*} value
  */
-PropertyModel.prototype.observe = function(type, value){
+PropertyModel.prototype.replace = function(type, value){
+
+  if (!this.initialized_){
+    this.setupProperty_();
+  }
 
   const obj = this.object_;
 
-  if (type === PropertyReplacer.TYPE.REPLACE){
+  if (type === ReplaceType.REPLACE){
     this.replacers_ = {};
 
     if (typeof value === 'function'){
@@ -158,12 +195,12 @@ PropertyModel.prototype.observe = function(type, value){
   }
 
   switch (type) {
-    case PropertyReplacer.TYPE.GETTER_BEFORE:
-    case PropertyReplacer.TYPE.GETTER:
-    case PropertyReplacer.TYPE.GETTER_AFTER:
-    case PropertyReplacer.TYPE.SETTER_BEFORE:
-    case PropertyReplacer.TYPE.SETTER:
-    case PropertyReplacer.TYPE.SETTER_AFTER:
+    case ReplaceType.GETTER_BEFORE:
+    case ReplaceType.GETTER:
+    case ReplaceType.GETTER_AFTER:
+    case ReplaceType.SETTER_BEFORE:
+    case ReplaceType.SETTER:
+    case ReplaceType.SETTER_AFTER:
       if (typeof value !== 'function'){
         throw new Error('value must be a function');
       }
@@ -171,8 +208,8 @@ PropertyModel.prototype.observe = function(type, value){
       break;
 
       // BEFORE and AFTER replacer should update the current value to fnProxy if not already
-    case PropertyReplacer.TYPE.BEFORE:
-    case PropertyReplacer.TYPE.AFTER:
+    case ReplaceType.BEFORE:
+    case ReplaceType.AFTER:
 
       if (typeof value !== 'function'){
         throw new Error('value must be a function');
@@ -218,14 +255,14 @@ PropertyModel.prototype.getFnProxy_ = function(obj, value){
   this.fnProxy_ = function(){
     let rValue = Array.prototype.slice.call(arguments);
 
-    const before = getReplacer_(PropertyReplacer.TYPE.BEFORE);
+    const before = getReplacer_(ReplaceType.BEFORE);
     if (before){
       rValue = before.apply(obj, rValue);
     }
 
     rValue = value.apply(obj, rValue);
 
-    const after = getReplacer_(PropertyReplacer.TYPE.AFTER);
+    const after = getReplacer_(ReplaceType.AFTER);
     if (after){
       rValue = after.apply(obj, [rValue]);
     }
@@ -254,12 +291,6 @@ PropertyModel.prototype.restore = function(){
 
 };
 
-/**
- * Property name used to store the unique id for a model
- * @const
- * @type {string}
- */
-const pHash = '_$_$_hash';
 
 /**
  * Class used to handle property_ replacement in tests
@@ -289,27 +320,13 @@ function PropertyReplacer(){
   this.nId = 0;
 }
 
-/**
- * @enum {number}
- */
-PropertyReplacer.TYPE = {
-  BEFORE: 0,
-  REPLACE: 1,
-  AFTER: 2,
-  GETTER_BEFORE: 3,
-  GETTER: 4,
-  GETTER_AFTER: 5,
-  SETTER_BEFORE: 6,
-  SETTER: 7,
-  SETTER_AFTER: 8,
-};
 
 /**
  * Replace a property_ with a replacer, usefull for mitm functions
  * @param {object} object
  * @param {string} property
  * @param {*} replacer
- * @param {PropertyReplacer.TYPE} type=PropertyReplacer.TYPE.REPLACE
+ * @param {ReplaceType} type=ReplaceType.REPLACE
  */
 PropertyReplacer.prototype.replace = function(object, property, replacer, type){
 
@@ -324,10 +341,10 @@ PropertyReplacer.prototype.replace = function(object, property, replacer, type){
 
   // Default type to REPLACE
   if (typeof type === 'undefined'){
-    type = PropertyReplacer.TYPE.REPLACE;
+    type = ReplaceType.REPLACE;
   }
 
-  original.observe(type, replacer);
+  original.replace(type, replacer);
 };
 
 /**
@@ -423,4 +440,5 @@ PropertyReplacer.prototype.hasKey_ = function(key){
 module.exports = {
   PropertyModel: PropertyModel,
   PropertyReplacer: PropertyReplacer,
+  ReplaceType: ReplaceType,
 };
