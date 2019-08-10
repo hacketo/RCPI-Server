@@ -1,4 +1,13 @@
-const pHash = '_$_$_hash';
+/**
+ * @fileoverview
+ * Test helper to replace properties and restore them at the end of a test
+ *
+ *
+ *
+ *
+ */
+
+
 
 /**
  *
@@ -89,7 +98,10 @@ PropertyModel.prototype.setter_ = function(value){
     value = this.replacers_[PropertyReplacer.TYPE.SETTER_BEFORE].call(this.object_, value);
   }
   if (typeof this.replacers_[PropertyReplacer.TYPE.SETTER] === 'function'){
-    value = this.replacers_[PropertyReplacer.TYPE.SETTER].call(this.object_, value);
+    const r = this.replacers_[PropertyReplacer.TYPE.SETTER].call(this.object_, value);
+    if (r !== undefined){
+      value = r;
+    }
   }
   if (typeof this.replacers_[PropertyReplacer.TYPE.SETTER_AFTER] === 'function'){
     value = this.replacers_[PropertyReplacer.TYPE.SETTER_AFTER].call(this.object_, value);
@@ -173,6 +185,7 @@ PropertyModel.prototype.observe = function(type, value){
         this.setter_(this.getFnProxy_(obj, this.value_));
       }
       break;
+
     default:
       throw new Error('Unkown type : ' + type + ' for callable');
   }
@@ -240,6 +253,13 @@ PropertyModel.prototype.restore = function(){
   this.value_ = null;
 
 };
+
+/**
+ * Property name used to store the unique id for a model
+ * @const
+ * @type {string}
+ */
+const pHash = '_$_$_hash';
 
 /**
  * Class used to handle property_ replacement in tests
