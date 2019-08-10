@@ -13,7 +13,7 @@ const nutil = require('util');
 const util = require('./util');
 const ReplaceType = util.ReplaceType;
 const PropertyReplacer = util.PropertyReplacer;
-const PropertyModel = util.PropertyModel;
+const PropertyStub = util.PropertyStub;
 
 /**
  * Return a new spy that return arguments values
@@ -73,16 +73,16 @@ const notCalled = function(spy, msg){
  */
 const PNAME = 'myFunction';
 
-describe('PropertyModel', function(){
+describe('PropertyStub', function(){
 
   /**
    * Model used in tests
-   * @type {PropertyModel}
+   * @type {PropertyStub}
    */
   let model;
 
   /**
-   * object to test the PropertyModel on
+   * object to test the PropertyStub on
    * @type {object}
    */
   let myObject;
@@ -120,7 +120,7 @@ describe('PropertyModel', function(){
 
     context('with an existing property', function(){
       beforeEach(function(){
-        model = new PropertyModel(myObject, PNAME);
+        model = new PropertyStub(myObject, PNAME);
       });
 
       it('should initialize the object_ property', function(){
@@ -146,14 +146,14 @@ describe('PropertyModel', function(){
       const propName = '\x00';
 
       beforeEach(function(){
-        model = new PropertyModel(myObject, propName);
+        model = new PropertyStub(myObject, propName);
       });
 
       it('should not initialize the value until setupProperty_ is called', function(){
 
         expect(myObject).to.not.haveOwnProperty(propName);
 
-        model = new PropertyModel(myObject, propName);
+        model = new PropertyStub(myObject, propName);
 
         expect(myObject).to.not.haveOwnProperty(propName);
         expect(myObject[propName]).to.equal(undefined);
@@ -200,7 +200,7 @@ describe('PropertyModel', function(){
           [PNAME]: originalFn,
         };
 
-        const model = new PropertyModel(myObject, PNAME);
+        const model = new PropertyStub(myObject, PNAME);
 
         const value = 1;
 
@@ -229,7 +229,7 @@ describe('PropertyModel', function(){
           configurable: true,
         });
 
-        const model2 = new PropertyModel(myObject2, PNAME);
+        const model2 = new PropertyStub(myObject2, PNAME);
 
         myObject2[PNAME] = value;
 
@@ -270,7 +270,7 @@ describe('PropertyModel', function(){
         const myObject = {
           [PNAME]: originalFn,
         };
-        const model = new PropertyModel(myObject, PNAME);
+        const model = new PropertyStub(myObject, PNAME);
 
         model.getter_ = getterSpy;
 
@@ -290,7 +290,7 @@ describe('PropertyModel', function(){
           configurable: true,
         });
 
-        const model = new PropertyModel(myObject, PNAME);
+        const model = new PropertyStub(myObject, PNAME);
 
         // resolve a value;
         expect(myObject[PNAME]).to.equal(defaultGetterValue);
@@ -355,7 +355,7 @@ describe('PropertyModel', function(){
           configurable: true,
         });
 
-        model = new PropertyModel(myObject, PNAME);
+        model = new PropertyStub(myObject, PNAME);
       });
 
       it('should hook the original setter to a SETTER replacer', function(){
@@ -406,6 +406,7 @@ describe('PropertyModel', function(){
         model.replace(ReplaceType.SETTER_AFTER, spySetter);
 
         myObject[PNAME] = 3;
+
         calledOnWith(defaultSetter, myObject, [3]);
         calledOnWith(spySetter, myObject, [defaultSetterValue]);
 
@@ -434,7 +435,7 @@ describe('PropertyModel', function(){
 
         myObject = new MyObject();
 
-        const model = new PropertyModel(myObject, PNAME);
+        const model = new PropertyStub(myObject, PNAME);
 
         model.replace(ReplaceType.SETTER_AFTER, spySetter);
 
@@ -495,7 +496,7 @@ describe('PropertyModel', function(){
           configurable: true,
         });
 
-        model = new PropertyModel(myObject, PNAME);
+        model = new PropertyStub(myObject, PNAME);
       });
 
       it('should hook the original getter to a GETTER replacer', function(){
@@ -591,7 +592,7 @@ describe('PropertyModel', function(){
 
         myObject = new MyObject();
 
-        const model2 = new PropertyModel(myObject, PNAME);
+        const model2 = new PropertyStub(myObject, PNAME);
 
         model2.replace(ReplaceType.REPLACE, spyReplace);
 

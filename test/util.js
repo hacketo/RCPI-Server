@@ -175,7 +175,7 @@ function PropertyReplacer(){
 
   /**
    * contain the list of all the properties replaced
-   * @type {Map<string, PropertyModel>}
+   * @type {Map<string, PropertyStub>}
    * @private
    */
   this.properties_ = new Map();
@@ -196,14 +196,14 @@ function PropertyReplacer(){
  * @param {object} object
  * @param {string} property
  * @param {*} replacer
- * @param {ReplaceType} type=ReplaceType.REPLACE
+ * @param {ReplaceType=} type=ReplaceType.REPLACE
  */
 PropertyReplacer.prototype.replace = function(object, property, replacer, type){
 
   const key = this.getKey_(object, property);
 
   if (!this.properties_.has(key)){
-    const propertyModel = new PropertyModel(object, property);
+    const propertyModel = new PropertyStub(object, property);
     this.properties_.set(key, propertyModel);
   }
 
@@ -237,8 +237,8 @@ PropertyReplacer.prototype.restore = function(object, property){
  * Restore ALL the original values for ALL field in ALL object_
  */
 PropertyReplacer.prototype.restoreAll = function(){
-  this.properties_.forEach(propertyModel => {
-    propertyModel.restore();
+  this.properties_.forEach(propertyStub => {
+    propertyStub.restore();
   });
   this.properties_.clear();
 };
@@ -267,9 +267,10 @@ PropertyReplacer.prototype.getHash_ = function(object, create){
 };
 
 /**
- *
+ * Retrieve a unique key for the combination of the object and the property name
+ * if the create flag is supplied to false, it will only retrieve an existing computed key
  * @param {object} object
- * @param {string} property
+ * @param {string} property - the property name
  * @param {boolean=} create=true
  * @return {string}
  * @private
@@ -303,18 +304,25 @@ PropertyReplacer.prototype.getKey_ = function(object, property, create){
   return key;
 };
 
+/**
+ * Test if the key is known in the properties_ list
+ * @param {string} key
+ * @return {boolean}
+ * @private
+ */
 PropertyReplacer.prototype.hasKey_ = function(key){
   return this.properties_.has(key);
 };
 
 /**
+ * Class to handle the replacement/restore of the value
  *
  * @param {object} obj
  * @param {string} property
  * @constructor
  * @class
  */
-function PropertyModel(obj, property){
+function PropertyStub(obj, property){
 
   /**
    * Reference to the object
@@ -357,6 +365,13 @@ function PropertyModel(obj, property){
    */
   this.initialized_ = false;
 
+  /**
+   * Function proxy used for the BEFORE and AFTER stub
+   * @type {function()}
+   * @private
+   */
+  this.fnProxy_ = undefined;
+
   if (this.object_.hasOwnProperty(this.property_)){
     this.setupProperty_();
   }
@@ -367,7 +382,7 @@ function PropertyModel(obj, property){
  * Hook original setter/getter
  * @private
  */
-PropertyModel.prototype.setupProperty_ = function(){
+PropertyStub.prototype.setupProperty_ = function(){
 
   this.value_ = this.object_[this.property_];
 
@@ -383,8 +398,6 @@ PropertyModel.prototype.setupProperty_ = function(){
     get: () => this.getter_(),
     configurable: true,
   });
-
-  this.fnProxy_ = undefined;
 
   // need to update the initialized flag here to be able to replace the setter/getter if any
   this.initialized_ = true;
@@ -408,7 +421,7 @@ PropertyModel.prototype.setupProperty_ = function(){
  * @param {*} value
  * @private
  */
-PropertyModel.prototype.setter_ = function(value){
+PropertyStub.prototype.setter_ = function(value){
   if (typeof this.replacers_[ReplaceType.SETTER_BEFORE] === 'function'){
     value = this.replacers_[ReplaceType.SETTER_BEFORE].apply(this.object_, arguments);
   }
@@ -434,7 +447,7 @@ PropertyModel.prototype.setter_ = function(value){
  * @return {*}
  * @private
  */
-PropertyModel.prototype.getter_ = function(){
+PropertyStub.prototype.getter_ = function(){
   let value = this.value_;
   // Should get_before have access to the value ? the real getter will not use any value
   if (typeof this.replacers_[ReplaceType.GETTER_BEFORE] === 'function'){
@@ -455,7 +468,7 @@ PropertyModel.prototype.getter_ = function(){
  * @param {ReplaceType} type
  * @param {function()|*} value
  */
-PropertyModel.prototype.replace = function(type, value){
+PropertyStub.prototype.replace = function(type, value){
 
   if (!this.initialized_){
     this.setupProperty_();
@@ -464,16 +477,17 @@ PropertyModel.prototype.replace = function(type, value){
   const obj = this.object_;
 
   if (type === ReplaceType.REPLACE){
+    // Remove all replacers
     this.replacers_ = {};
 
-    if (typeof value === 'function'){
-      if (!this.fnProxy_ || this.value_ !== this.fnProxy_){
-        this.value_ = value;
-      }
-    }
-    else {
-      this.value_ = value;
-    }
+    // if (typeof value === 'function'){
+    //   if (!this.fnProxy_ || this.value_ !== this.fnProxy_){
+    //     this.value_ = value;
+    //   }
+    // }
+    // else {
+    this.value_ = value;
+    // }
     return;
   }
 
@@ -484,9 +498,11 @@ PropertyModel.prototype.replace = function(type, value){
     case ReplaceType.SETTER_BEFORE:
     case ReplaceType.SETTER:
     case ReplaceType.SETTER_AFTER:
+
       if (typeof value !== 'function'){
-        throw new Error('value must be a function');
+        throw new Error('value must be a function, yet..');
       }
+
       this.replacers_[type] = value;
       break;
 
@@ -511,13 +527,6 @@ PropertyModel.prototype.replace = function(type, value){
   }
 };
 
-PropertyModel.prototype.getReplacer_ = function(type){
-  if (typeof this.replacers_[type] === 'function'){
-    return this.replacers_[type];
-  }
-  return void 0;
-};
-
 /**
  * Initialize a new function proxy, to be able to call the BEFORE / AFTER hooks
  * Store the result in {@see this.fnProxy_}
@@ -527,24 +536,33 @@ PropertyModel.prototype.getReplacer_ = function(type){
  * @return {function}
  * @private
  */
-PropertyModel.prototype.getFnProxy_ = function(obj, value){
+PropertyStub.prototype.getFnProxy_ = function(obj, value){
 
   if (this.fnProxy_){
     return this.fnProxy_;
   }
 
-  const getReplacer_ = this.getReplacer_.bind(this);
+  // Local method to retrieve the replacer inside the function proxy
+  const getReplacer_ = (type) => {
+    if (typeof this.replacers_[type] === 'function'){
+      return this.replacers_[type];
+    }
+    return null;
+  };
 
   this.fnProxy_ = function(){
     let rValue = Array.prototype.slice.call(arguments);
 
+    // Call the BEFORE proxy
     const before = getReplacer_(ReplaceType.BEFORE);
     if (before){
       rValue = before.apply(obj, rValue);
     }
 
+    // Call the actual function
     rValue = value.apply(obj, rValue);
 
+    // Call the AFTER proxy
     const after = getReplacer_(ReplaceType.AFTER);
     if (after){
       rValue = after.apply(obj, [rValue]);
@@ -561,7 +579,7 @@ PropertyModel.prototype.getFnProxy_ = function(obj, value){
  * Clean any reference to that object
  * A restore is supposed be called before the destroy of that model
  */
-PropertyModel.prototype.restore = function(){
+PropertyStub.prototype.restore = function(){
   delete this.object_[this.property_];
   if (this.origin_){
     Object.defineProperty(this.object_, this.property_, this.origin_);
@@ -575,7 +593,7 @@ PropertyModel.prototype.restore = function(){
 };
 
 module.exports = {
-  PropertyModel: PropertyModel,
+  PropertyStub: PropertyStub,
   PropertyReplacer: PropertyReplacer,
   ReplaceType: ReplaceType,
 };
