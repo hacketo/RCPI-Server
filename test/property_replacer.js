@@ -351,7 +351,7 @@ PropertyReplacer.prototype.restoreNamespace = function(namespace, remove){
     remove = namespace;
     namespace = this.currentNamespace_;
   }
-  else {
+  else if (namespace === '' || namespace !== this.currentNamespace_){
     // If a namespace is supplied we might want to restore it's state
     restoreAfter = true;
   }
@@ -360,7 +360,7 @@ PropertyReplacer.prototype.restoreNamespace = function(namespace, remove){
   let iOf = this.namespacesPath_.indexOf(namespace);
 
   if (iOf === -1){
-    return false;
+    throw new Error('can\'t find namespace named: ' + namespace);
   }
 
   // If we want to restore the namespace after the one supplied
@@ -374,25 +374,27 @@ PropertyReplacer.prototype.restoreNamespace = function(namespace, remove){
   const namespaceToRestore = this.namespacesPath_[iOf];
 
   const refs = this.namespaces_.get(namespaceToRestore);
-
-  for (let i = refs.length - 1; i > 0; i--){
+  // Restore all the properties
+  for (let i = refs.length - 1; i >= 0; i--){
     this.restore__(refs[i]);
   }
 
+  // If we want to remove the namespace from the list
   if (remove){
     if (this.namespacesPath_.length > 1){
-      this.namespaces_.delete(namespace);
-      this.namespacesPath_.splice(iOf, 1);
+      this.namespaces_.delete(namespaceToRestore);
       //FIXME if remove namespace in between we break the chain of the original_ of the namespace+1 property subs
-      this.currentNamespace_ = this.namespacesPath_[iOf - 1];
+      this.namespacesPath_.splice(iOf, 1);
     }
   }
+  //Update current namespace
   this.currentNamespace_ = this.namespacesPath_[iOf - 1];
   return true;
 };
 
 /**
  * Restore ALL the original values for ALL field in ALL object_
+ * //FIXME-tt this methods should remove references
  */
 PropertyReplacer.prototype.restoreAll = function(){
   this.properties_.forEach(propertyStub => {
@@ -443,7 +445,7 @@ PropertyReplacer.prototype.getKey_ = function(object, property, create){
     throw new Error('property_ has to be a string');
   }
 
-  if (!object.hasOwnProperty(property)){
+  if (!create && !object.hasOwnProperty(property)){
     throw new Error('Object dont have property :' + property);
   }
 
@@ -479,9 +481,9 @@ PropertyReplacer.prototype.hasKey_ = function(key){
  */
 PropertyReplacer.prototype.addNamespaceRef_ = function(propertyStub){
   // If no namespace defined don't register it
-  if (!this.currentNamespace_){
-    return false;
-  }
+  // if (!this.currentNamespace_){
+  //   return false;
+  // }
   // initialize default ref list if not exists
   if (!this.namespaces_.has(this.currentNamespace_)){
     this.namespaces_.set(this.currentNamespace_, []);
@@ -578,7 +580,10 @@ PropertyReplacer.prototype.removeObjectRef_ = function(object, propertyStub){
   if (iOf !== -1){
     list.splice(iOf, 1);
 
-    this.cleanObject_(object);
+    if (!list.length){
+      this.cleanObject_(object);
+    }
+
     return true;
   }
 
@@ -869,6 +874,7 @@ PropertyStub.prototype.getFnProxy_ = function(obj, value){
  * A restore is supposed be called before the destroy of that model
  */
 PropertyStub.prototype.restore = function(){
+  console.debug('restoring : ' + this.key_ + ' ');
   delete this.object_[this.property_];
   if (this.origin_){
     Object.defineProperty(this.object_, this.property_, this.origin_);

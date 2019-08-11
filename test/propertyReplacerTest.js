@@ -900,23 +900,106 @@ describe('PropertyReplacer', function(){
   });
 
 
-  describe('using namespace', function(){
+  describe('using namespaces', function(){
 
     it('should be able to define a namespace', function(){
-      propertyReplacer.setup('myTests');
 
       propertyReplacer.replace(myObject, PNAME, spy);
 
-      propertyReplacer.setup('myOtherTest');
+      propertyReplacer.setup('myTests');
 
       const spy2 = getSpy1(3);
+
       propertyReplacer.replace(myObject, PNAME, spy2);
 
-      propertyReplacer.restoreNamespace(true);
+      propertyReplacer.restoreNamespace();
+
+      expect(myObject[PNAME]).to.equal(spy);
+
+    });
+
+    it('should be able to define 3 namespaces depth and restore all the values', function(){
+
+      propertyReplacer.replace(myObject, PNAME, spy);
+
+      propertyReplacer.setup('myTests');
+
+      const spy2 = getSpy1(3);
+
+      propertyReplacer.replace(myObject, PNAME, spy2);
+
+      propertyReplacer.setup('myTests2');
+
+      const spy3 = getSpy1(3);
+
+      propertyReplacer.replace(myObject, PNAME, spy3);
+
+      propertyReplacer.restoreNamespace();
 
       expect(myObject[PNAME]).to.equal(spy2);
 
-    })
+      propertyReplacer.restoreNamespace();
+
+      expect(myObject[PNAME]).to.equal(spy);
+
+    });
+
+    it('should be able to define 3 namespaces depth with different properties and restore all the values', function(){
+
+      propertyReplacer.replace(myObject, PNAME, spy);
+
+      propertyReplacer.setup('myTests');
+
+      const spy2 = getSpy1(3);
+
+      propertyReplacer.replace(myObject, "myFunction2", spy2);
+
+      propertyReplacer.setup('myTests2');
+
+      const spy3 = getSpy1(3);
+
+      propertyReplacer.replace(myObject, PNAME, spy3);
+
+      expect(myObject["myFunction2"]).to.equal(spy2);
+      expect(myObject[PNAME]).to.equal(spy3);
+
+      propertyReplacer.restoreNamespace('myTests2');
+
+      expect(myObject[PNAME]).to.equal(spy);
+      expect(myObject["myFunction2"]).to.equal(spy2);
+
+      propertyReplacer.restoreNamespace('myTests');
+
+      expect(myObject[PNAME]).to.equal(spy);
+      expect(myObject["myFunction2"]).to.equal(undefined);
+
+    });
+
+    it('should be able to define 3 namespaces depth with different properties and restore all the values to the first one directly', function(){
+
+      propertyReplacer.replace(myObject, PNAME, spy);
+
+      propertyReplacer.setup('myTests');
+
+      const spy2 = getSpy1(3);
+
+      propertyReplacer.replace(myObject, "myFunction2", spy2);
+
+      propertyReplacer.setup('myTests2');
+
+      const spy3 = getSpy1(3);
+
+      propertyReplacer.replace(myObject, PNAME, spy3);
+
+      expect(myObject["myFunction2"]).to.equal(spy2);
+      expect(myObject[PNAME]).to.equal(spy3);
+
+      propertyReplacer.restoreNamespace('');
+
+      expect(myObject[PNAME]).to.equal(spy);
+      expect(myObject["myFunction2"]).to.equal(undefined);
+
+    });
 
   });
 });
