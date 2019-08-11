@@ -4,22 +4,35 @@
 
 const expect = require('chai').expect;
 
+const youtubedl = require('youtube-dl');
+
 const Media = require('../src/media').Media;
 const MediaModel = require('../src/media').MediaModel;
-const MockInfos = require('./mockyt').MockInfos;
-const MockSubs = require('./mockyt').MockSubs;
-const MockListAvailable = require('./mockyt').MockListAvailable;
-const WebMedia = require('../src/media').WebMedia;
 
-const PropertyReplacer = require('./util').PropertyReplacer;
-const youtubedl = require('youtube-dl');
+const WebMedia = require('../src/media').WebMedia;
+const MockYT = require('./mocks/mockyt');
+const MockInfos = MockYT.MockInfos;
+const MockInfos2 = MockYT.MockInfos2;
+const MockSubs = MockYT.MockSubs;
+
+const MockListAvailable = MockYT.MockListAvailable;
+const PropertyReplacer = require('./property_replacer').PropertyReplacer;
+
 const propertyReplacer = new PropertyReplacer();
 
-// Override flag to not delete mock vtt file
-Media.deleteVTT = false;
+before(function(){
+  gPropertyReplacer.setup('media');
 
+// Override flag to not delete mock vtt file
+  gPropertyReplacer.replace(Media, 'deleteVTT', false);
 // Override default temp dir
-Media.tempDir = __dirname + '/';
+  gPropertyReplacer.replace(Media, 'tempDir', __dirname + '/mocks/');
+});
+
+after(function(){
+  gPropertyReplacer.restore('media');
+});
+
 
 afterEach(function(){
   propertyReplacer.restoreAll();
@@ -87,7 +100,7 @@ describe('MediaModel', function() {
 describe('Media', function(){
   let media;
 
-  const url = './mock_media.mp4';
+  const url = './mocks/mock_media.mp4';
 
   beforeEach(function(){
     media = new Media(url);
@@ -96,7 +109,7 @@ describe('Media', function(){
   describe('Constructor', function() {
 
 
-    it('Should initialise properties', function () {
+    it('Should initialise properties', function() {
       expect(media, 'no duration').to.have.a.property('duration').that.is.null;
       expect(media.url, 'url does not match').to.be.equals(url);
       expect(media.media_.filename, 'filename does not match').to.be.equals('mock_media.mp4');
@@ -107,8 +120,10 @@ describe('Media', function(){
 
     it('Should resolve media and have a list', function(){
       return media.resolveMedias().then(() => {
-        expect(media.medias_.length, 'should have a media in the list').to.be.equals(1);
-        expect(media.medias_[0].url, 'should have a media in the list').to.be.equals(url);
+        expect(media.medias_.length, 'should have a media in the list')
+          .to.equal(1);
+        expect(media.medias_[0].url, 'should have a media in the list')
+          .to.equal(url);
       });
     });
 
@@ -144,15 +159,15 @@ describe('WebMedia', function(){
     media = new WebMedia(url);
 
     propertyReplacer.replace(WebMedia.prototype, 'getInfo__', (url, args, options) => {
-      options(null, MockInfos);
+      options(null, MockInfos2);
     });
 
-    // propertyReplacer.replace(WebMedia.prototype, 'getSubs__', (url, args, options) => {
-    //   options(null, MockSubs);
-    // });
-    // propertyReplacer.replace(WebMedia.prototype, 'exec__', (url, args, options, callback) => {
-    //   callback(null, MockListAvailable);
-    // });
+    propertyReplacer.replace(WebMedia.prototype, 'getSubs__', (url, args, options) => {
+      options(null, MockSubs);
+    });
+    propertyReplacer.replace(WebMedia.prototype, 'exec__', (url, args, options, callback) => {
+      callback(null, MockListAvailable);
+    });
 
 
   });
@@ -207,10 +222,10 @@ describe('WebMedia', function(){
     it('Should resolve subtitles mocked', function(){
       this.timeout(10000);
 
-      // Mock to retrieve video duration without ffprobe
-      // propertyReplacer.replace(WebMedia.prototype, '.convertSubtitleFileIfNeeded__', (url) => {
-      //   return Promise.resolve(MockSubs[0].replace('.vtt', '.srt'));
-      // });
+      //Mock to retrieve video duration without ffprobe
+      propertyReplacer.replace(WebMedia.prototype, 'convertSubtitleFileIfNeeded__', (url) => {
+        return Promise.resolve(MockSubs[0].replace('.vtt', '.srt'));
+      });
 
       return media.resolveSubtitles('fr').then(() => {
         expect(media.subtitles.length, 'should have a media in the list').to.equal(1);
