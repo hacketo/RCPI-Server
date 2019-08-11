@@ -5,6 +5,13 @@
  * The PropertyReplacer is a test helper to replace object properties.
  * It helps in restoring the original state of the property with a simple restore() method
  *
+ * Ideas:
+ * The goal is to easily restore property states between each tests / test suites.
+ *
+ * You might want to restore all properties on only one specific object
+ * ~~You might want to restore some properties only on one object~~
+ * You might want to restore all properties changed in that test suite
+ * You might want to restore all properties at time T ? (save state)
  *
  */
 
@@ -181,6 +188,20 @@ function PropertyReplacer(){
   this.properties_ = new Map();
 
   /**
+   * Contain the list of namespace defined with all their associated stubs
+   * @type {Map<string, Array<PropertyStub>>}
+   * @private
+   */
+  this.namespaces_ = new Map();
+
+  /**
+   * Contain a map of all properties for a particular object id
+   * @type {Map<string, Array<PropertyStub>>}
+   * @private
+   */
+  this.objects_ = new Map();
+
+  /**
    * property name used to store it's id
    * @type {string}
    * @private
@@ -188,14 +209,35 @@ function PropertyReplacer(){
   this.hash_ = pHash;
 
   this.nId = 0;
+
+  this.currentNamespace_ = '';
+
+  this.namespacesPath_ = [this.currentNamespace_];
 }
 
+/**
+ * Define the current namespace to use for the replacers
+ * Initialize the property stub reference list
+ * @param {string} namespace - the namespace to use
+ */
+PropertyReplacer.prototype.setup = function(namespace){
+
+  this.currentNamespace_ = namespace;
+
+  if (this.currentNamespace_){
+    // Initialize namespace list
+    if (!this.namespaces_.has(this.currentNamespace_)){
+      this.namespaces_.set(this.currentNamespace_, []);
+      this.namespacesPath_.push(this.currentNamespace_);
+    }
+  }
+};
 
 /**
- * Replace a property_ with a replacer, usefull for mitm functions
- * @param {object} object
- * @param {string} property
- * @param {*} replacer
+ * Replace a property with a replacer, usefull for mitm functions
+ * @param {object} object - the object to replace the property
+ * @param {string} property - the property to replace on
+ * @param {*} replacer - the actual value for the replacement
  * @param {ReplaceType=} type=ReplaceType.REPLACE
  */
 PropertyReplacer.prototype.replace = function(object, property, replacer, type){
@@ -203,8 +245,11 @@ PropertyReplacer.prototype.replace = function(object, property, replacer, type){
   const key = this.getKey_(object, property);
 
   if (!this.properties_.has(key)){
-    const propertyModel = new PropertyStub(object, property);
-    this.properties_.set(key, propertyModel);
+    const propertyStub = new PropertyStub(object, property, key, this.currentNamespace_);
+    this.properties_.set(key, propertyStub);
+
+    this.addNamespaceRef_(propertyStub);
+    this.addObjectRef_(object, propertyStub);
   }
 
   const original = this.properties_.get(key);
@@ -218,19 +263,132 @@ PropertyReplacer.prototype.replace = function(object, property, replacer, type){
 };
 
 /**
- * Restore the original value for a field in a object_
+ * Restore the original value for a property in a object
  * @param {object} object
  * @param {string} property
  * @return {boolean}
  */
 PropertyReplacer.prototype.restore = function(object, property){
-  const key = this.getKey_(object, property, false);
-  if (this.hasKey_(key)){
-    const model = this.properties_.get(key);
-    model.restore();
-    return this.properties_.delete(key);
+
+  if (typeof property !== 'undefined'){
+    const key = this.getKey_(object, property, false);
+    if (this.hasKey_(key)){
+      const propertyStub = this.properties_.get(key);
+      return this.restore__(propertyStub);
+    }
+    return false;
   }
-  return false;
+
+  return this.restoreObject_(object);
+};
+
+/**
+ * Restore a model and Remove all the reference to it
+ * @param {PropertyStub} propertyStub
+ * @return {boolean}
+ * @private
+ */
+PropertyReplacer.prototype.restore__ = function(propertyStub){
+
+  const key = propertyStub.key_;
+  const obj = propertyStub.object_;
+  const namespace = propertyStub.namespace_;
+
+  if (!this.hasKey_(key)){
+    return false;
+  }
+
+  propertyStub.restore();
+
+  this.removeObjectRef_(obj, propertyStub);
+  this.removeNamespaceRef_(namespace, propertyStub);
+  return this.properties_.delete(key);
+};
+
+/**
+ * Restore all property stubs for a particular object
+ * remove the hash proeprty on the original object
+ * @param {object} object
+ * @return {boolean}
+ * @private
+ */
+PropertyReplacer.prototype.restoreObject_ = function(object){
+  const objectHash = this.getHash_(object, false);
+
+  if (!this.objects_.has(objectHash)){
+    return false;
+  }
+
+  const stubs = this.objects_.get(objectHash);
+  for (let i = stubs.length - 1; i > 0; i--){
+    this.restore__(stubs[i]);
+  }
+
+  this.objects_.delete(objectHash);
+
+  this.cleanObject_(object);
+  return true;
+};
+
+/**
+ * restore all property stub created in a particular namespace
+ * if remove flag is supplied to true, delete the namespace
+ * if no namespace supplied default to the current namespace in use
+ * @param {string|boolean=} namespace=this.currentNamespace_ - if string, namespace to restore, if boolean remove flag
+ * @param {boolean=} remove - flag to delete the namespace after restoring all the properties
+ * @return {boolean} true if the namespace was restored
+ */
+PropertyReplacer.prototype.restoreNamespace = function(namespace, remove){
+
+  // Flag used to decide if we want to resotre the namespace after the one supplied (original value = namespace supplied)
+  let restoreAfter = false;
+
+  if (namespace === undefined){
+    namespace = this.currentNamespace_;
+  }
+
+  else if (typeof namespace === 'boolean'){
+    remove = namespace;
+    namespace = this.currentNamespace_;
+  }
+  else {
+    // If a namespace is supplied we might want to restore it's state
+    restoreAfter = true;
+  }
+
+
+  let iOf = this.namespacesPath_.indexOf(namespace);
+
+  if (iOf === -1){
+    return false;
+  }
+
+  // If we want to restore the namespace after the one supplied
+  if (restoreAfter){
+    if (iOf < this.namespacesPath_.length - 1){
+      iOf++;
+    }
+  }
+
+  // Get tyhe acual namespace to restore the origin values of the propertyStubs
+  const namespaceToRestore = this.namespacesPath_[iOf];
+
+  const refs = this.namespaces_.get(namespaceToRestore);
+
+  for (let i = refs.length - 1; i > 0; i--){
+    this.restore__(refs[i]);
+  }
+
+  if (remove){
+    if (this.namespacesPath_.length > 1){
+      this.namespaces_.delete(namespace);
+      this.namespacesPath_.splice(iOf, 1);
+      //FIXME if remove namespace in between we break the chain of the original_ of the namespace+1 property subs
+      this.currentNamespace_ = this.namespacesPath_[iOf - 1];
+    }
+  }
+  this.currentNamespace_ = this.namespacesPath_[iOf - 1];
+  return true;
 };
 
 /**
@@ -295,7 +453,7 @@ PropertyReplacer.prototype.getKey_ = function(object, property, create){
     throw new Error('can\'t find a hash for ' + object);
   }
 
-  const key = hash + ':' + property;
+  const key = this.currentNamespace_ + ':' + hash + ':' + property;
 
   if (!create && !this.hasKey_(key)){
     throw new Error('key [' + key + ']does not exists for object_ ' + object);
@@ -315,14 +473,145 @@ PropertyReplacer.prototype.hasKey_ = function(key){
 };
 
 /**
+ * Adds a propertyStub reference to the internal namespaces_ map for the current namespace defined {@see #setup}
+ * @param {PropertyStub} propertyStub
+ * @return {boolean} true if namespace ref was added
+ */
+PropertyReplacer.prototype.addNamespaceRef_ = function(propertyStub){
+  // If no namespace defined don't register it
+  if (!this.currentNamespace_){
+    return false;
+  }
+  // initialize default ref list if not exists
+  if (!this.namespaces_.has(this.currentNamespace_)){
+    this.namespaces_.set(this.currentNamespace_, []);
+  }
+
+  const list = this.namespaces_.get(this.currentNamespace_);
+
+  // Add propertyStub ref to the list if not exists already
+  if (list.indexOf(propertyStub) === -1){
+    list.push(propertyStub);
+    return true;
+  }
+
+  return false;
+};
+
+/**
+ * Remove a propertyStub reference to the internal namespaces_ map for the current namespace defined {@see #setup}
+ * @param {string} namespace
+ * @param {PropertyStub} propertyStub
+ * @return {boolean} true if namespace ref was removed
+ */
+PropertyReplacer.prototype.removeNamespaceRef_ = function(namespace, propertyStub){
+  // If no namespace can't remove it
+  if (!namespace){
+    return false;
+  }
+  if (!this.namespaces_.has(namespace)){
+    return false;
+  }
+
+  const list = this.namespaces_.get(namespace);
+  // remove if exists
+  let iOf = list.indexOf(propertyStub);
+  if (iOf !== -1){
+    list.splice(iOf, 1);
+    return true;
+  }
+
+  return false;
+};
+
+/**
+ * Adds a propertyStub reference to the internal objects_ map for the object
+ * @param {object} object
+ * @param {PropertyStub} propertyStub
+ * @return {boolean} true if namespace ref was added
+ */
+PropertyReplacer.prototype.addObjectRef_ = function(object, propertyStub){
+
+  const objectHash = this.getHash_(object, false);
+
+  // initialize default ref list if not exists
+  if (!this.objects_.has(objectHash)){
+    this.objects_.set(objectHash, []);
+  }
+
+  const list = this.objects_.get(objectHash);
+
+  // Add propertyStub ref to the list if not exists already
+  if (list.indexOf(propertyStub) === -1){
+    list.push(propertyStub);
+    return true;
+  }
+
+  return false;
+};
+
+PropertyReplacer.prototype.cleanObject_ = function(object){
+  if (object.hasOwnProperty(this.hash_)){
+    delete object[this.hash_];
+  }
+}
+
+/**
+ * Remove a propertyStub reference to the internal objects_ map
+ * @param {object} object
+ * @param {PropertyStub} propertyStub
+ * @return {boolean} true if the reference was removed
+ */
+PropertyReplacer.prototype.removeObjectRef_ = function(object, propertyStub){
+
+  const objectHash = this.getHash_(object, false);
+
+  // can't remove something if there no not something
+  if (!this.objects_.has(objectHash)){
+    return false;
+  }
+
+  const list = this.objects_.get(objectHash);
+
+  // remove if exists
+  let iOf = list.indexOf(propertyStub);
+  if (iOf !== -1){
+    list.splice(iOf, 1);
+
+    this.cleanObject_(object);
+    return true;
+  }
+
+  return false;
+};
+
+
+/**
  * Class to handle the replacement/restore of the value
  *
  * @param {object} obj
  * @param {string} property
+ * @param {string=} key
+ * @param {string=} namespace
+ *
  * @constructor
  * @class
  */
-function PropertyStub(obj, property){
+function PropertyStub(obj, property, key, namespace){
+
+  /**
+   * unique Key for the sub
+   * @type {string}
+   * @private
+   */
+  this.key_ = key;
+
+  /**
+   * namespace used for that property stub
+   * @type {string}
+   * @private
+   */
+  this.namespace_ = namespace;
 
   /**
    * Reference to the object

@@ -4,16 +4,20 @@
 
 const chai = require('chai');
 const sinon = require('sinon');
-const sinonChai = require('sinon-chai');
-chai.use(sinonChai);
 const expect = chai.expect;
 
-const nutil = require('util');
+if (!global.SINON_CHAI){
+  const sinonChai = require('sinon-chai');
+  chai.use(sinonChai);
+  global.SINON_CHAI = true;
+}
 
-const util = require('./util');
-const ReplaceType = util.ReplaceType;
-const PropertyReplacer = util.PropertyReplacer;
-const PropertyStub = util.PropertyStub;
+const util = require('util');
+
+const replacer = require('./property_replacer');
+const ReplaceType = replacer.ReplaceType;
+const PropertyReplacer = replacer.PropertyReplacer;
+const PropertyStub = replacer.PropertyStub;
 
 /**
  * Return a new spy that return arguments values
@@ -431,7 +435,7 @@ describe('PropertyStub', function(){
         const MyObject = function(){
           Parent.call(this);
         };
-        nutil.inherits(MyObject, Parent);
+        util.inherits(MyObject, Parent);
 
         myObject = new MyObject();
 
@@ -588,7 +592,7 @@ describe('PropertyStub', function(){
         const MyObject = function(){
           Parent.call(this);
         };
-        nutil.inherits(MyObject, Parent);
+        util.inherits(MyObject, Parent);
 
         myObject = new MyObject();
 
@@ -794,7 +798,7 @@ describe('PropertyReplacer', function(){
 
       expect(propertyReplacer.properties_.get(myObject[propertyReplacer.hash_]));
 
-      propertyReplacer.restore(myObject, PNAME);
+      expect(propertyReplacer.restore(myObject, PNAME)).to.be.true;
 
       // Default value
       expect(myObject[PNAME]).to.equal(objectFn1);
@@ -893,5 +897,26 @@ describe('PropertyReplacer', function(){
       calledOnWith(object2Fn1, myObject2, ['a', 'b', 'c', 'd']);
       calledOnWith(object2Fn2, myObject2, ['a', 'b', 'c', 'd', 'e']);
     });
+  });
+
+
+  describe('using namespace', function(){
+
+    it('should be able to define a namespace', function(){
+      propertyReplacer.setup('myTests');
+
+      propertyReplacer.replace(myObject, PNAME, spy);
+
+      propertyReplacer.setup('myOtherTest');
+
+      const spy2 = getSpy1(3);
+      propertyReplacer.replace(myObject, PNAME, spy2);
+
+      propertyReplacer.restoreNamespace(true);
+
+      expect(myObject[PNAME]).to.equal(spy2);
+
+    })
+
   });
 });

@@ -2,6 +2,9 @@
  * Created by hacketo on 25/05/18.
  */
 
+let DEBUG = true;
+let LOG = true;
+
 const fs = require('fs');
 
 function walk(dir, sub){
@@ -146,13 +149,17 @@ function sec(ms_){
 }
 
 function log(msg){
-  console.log.apply(console, arguments);
+  if (module.exports.LOG){
+    console.log.apply(console, arguments);
+  }
 }
 function error(msg){
   console.error.apply(console, arguments);
 }
 function debug(msg){
-  console.log.apply(console, arguments);
+  if (module.exports.DEBUG){
+    console.log.apply(console, arguments);
+  }
 }
 
 function getOmxTime(duration){
@@ -221,6 +228,8 @@ function subtitleMaxLineLength(str, size) {
   return lines.join('\n');
 }
 
+module.exports.LOG = LOG;
+module.exports.DEBUG = DEBUG;
 module.exports.walk = walk;
 module.exports.computePacket = computePacket;
 module.exports.sec = sec;
