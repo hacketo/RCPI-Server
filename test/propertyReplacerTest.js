@@ -129,19 +129,19 @@ describe('PropertyStub', function(){
 
       it('should initialize the object_ property', function(){
         expect(model.object_, 'the internal object_ reference should be equal to the same given in the constructor')
-          .to.equal(myObject);
+            .to.equal(myObject);
 
         expect(model.property_, 'the internal property should be equal to the same given in the constructor')
-          .to.equal(PNAME);
+            .to.equal(PNAME);
 
         expect(model.origin_, 'the origin_ value should be the original PropertyDescriptor of the object')
-          .to.deep.equal(originalPropertyDescriptior);
+            .to.deep.equal(originalPropertyDescriptior);
 
         expect(model.value_, 'the value_ should be the one retrieved on the object')
-          .to.equal(myObject[PNAME]);
+            .to.equal(myObject[PNAME]);
 
         expect(model.fnProxy_, 'the fnProxy_ value should not be initialized')
-          .to.equal(undefined);
+            .to.equal(undefined);
       });
     });
 
@@ -365,7 +365,7 @@ describe('PropertyStub', function(){
       it('should hook the original setter to a SETTER replacer', function(){
 
         expect(model.replacers_[ReplaceType.SETTER], 'should have a default GETTER replacer')
-          .to.equal(defaultSetter);
+            .to.equal(defaultSetter);
 
         // We have no default value and no setter so ...
         expect(myObject[PNAME]).to.equal(undefined);
@@ -375,7 +375,7 @@ describe('PropertyStub', function(){
 
         // defaultSetter returns 1
         expect(model.value_, 'setter should have updated value')
-          .to.equal(defaultSetterValue);
+            .to.equal(defaultSetterValue);
       });
 
       it('should REPLACE the real setter with the spy', function(){
@@ -402,7 +402,7 @@ describe('PropertyStub', function(){
 
         // Value returned by default setter is 1
         expect(model.value_, 'setter should have updated value')
-          .to.equal(defaultSetterValue);
+            .to.equal(defaultSetterValue);
       });
 
       it('should hook the spy AFTER the real setter', function(){
@@ -418,7 +418,7 @@ describe('PropertyStub', function(){
 
         // Value returned by spy setter is 2
         expect(model.value_, 'setter should have updated value')
-          .to.equal(spySetterValue);
+            .to.equal(spySetterValue);
       });
 
       it('should hook the spy AFTER the real setter inherited', function(){
@@ -451,7 +451,7 @@ describe('PropertyStub', function(){
 
         // Value returned by spy setter is 2
         expect(model.value_, 'setter should have updated value')
-          .to.equal(spySetterValue);
+            .to.equal(spySetterValue);
       });
     });
 
@@ -506,7 +506,7 @@ describe('PropertyStub', function(){
       it('should hook the original getter to a GETTER replacer', function(){
 
         expect(model.replacers_[ReplaceType.GETTER], 'should have a default GETTER replacer')
-          .to.equal(defaultGetter);
+            .to.equal(defaultGetter);
 
         expect(myObject[PNAME]).to.equal(defaultGetterValue);
 
@@ -528,7 +528,7 @@ describe('PropertyStub', function(){
           'the spy should replace the original getter');
 
         expect(defaultGetter, 'The default getter should\'ve not been called anymore')
-          .to.have.been.calledOnce;
+            .to.have.been.calledOnce;
 
       });
 
@@ -547,7 +547,7 @@ describe('PropertyStub', function(){
 
         // Value returned by default setter is 1
         expect(model.value_, 'setter should have updated value')
-          .to.equal(defaultGetterValue);
+            .to.equal(defaultGetterValue);
       });
 
       it('should hook the spy AFTER the real getter', function(){
@@ -564,7 +564,7 @@ describe('PropertyStub', function(){
         expect(defaultGetter).to.have.been.calledBefore(spyGetter);
 
         expect(model.value_, 'setter should have updated value')
-          .to.equal(defaultGetterValue);
+            .to.equal(defaultGetterValue);
       });
     });
 
@@ -723,7 +723,7 @@ describe('PropertyReplacer', function(){
       calledOnWith(spy, myObject, 1, 'spy called after, rValue of original is 1');
 
       expect(originalFn, 'Original function should have been called before the spy')
-        .to.have.been.calledBefore(spy);
+          .to.have.been.calledBefore(spy);
     });
 
     it('should add a replacer for a function : BEFORE', function(){
@@ -738,7 +738,7 @@ describe('PropertyReplacer', function(){
       calledOnWith(spy, myObject, ['a', 'b'], 'spy called before');
 
       expect(spy, 'Spy should have been called before the original function')
-        .to.have.been.calledBefore(originalFn);
+          .to.have.been.calledBefore(originalFn);
     });
 
     it('should add a replacer for a function setter/getter : REPLACE', function(){
@@ -758,13 +758,13 @@ describe('PropertyReplacer', function(){
       propertyReplacer.replace(myObject2, PNAME, spy);
       expect(myObject2[PNAME]).to.equal(spy);
       expect(objVar, 'should not have changed, original setter not called')
-        .to.equal(undefined);
+          .to.equal(undefined);
 
       const spy2 = getSpy1();
       myObject2[PNAME] = spy2;
       expect(myObject2[PNAME]).to.equal(spy2);
       expect(objVar, 'should not have changed, original setter not called')
-        .to.equal(undefined);
+          .to.equal(undefined);
 
       myObject2[PNAME]();
       calledOnWith(spy2, myObject2, [], 'Spy2 should have been called');
@@ -916,6 +916,8 @@ describe('PropertyReplacer', function(){
 
       expect(myObject[PNAME]).to.equal(spy);
 
+      propertyReplacer.restoreNamespace();
+
     });
 
     it('should be able to define 3 namespaces depth and restore all the values', function(){
@@ -935,12 +937,19 @@ describe('PropertyReplacer', function(){
       propertyReplacer.replace(myObject, PNAME, spy3);
 
       propertyReplacer.restoreNamespace();
+      expect(propertyReplacer.currentNamespace_).to.equal('myTests2');
 
       expect(myObject[PNAME]).to.equal(spy2);
 
       propertyReplacer.restoreNamespace();
+      expect(propertyReplacer.currentNamespace_).to.equal('myTests');
 
       expect(myObject[PNAME]).to.equal(spy);
+
+      propertyReplacer.restoreNamespace();
+      expect(propertyReplacer.currentNamespace_).to.equal('');
+
+      expect(myObject[PNAME]).to.equal(originalFn);
 
     });
 
@@ -952,7 +961,7 @@ describe('PropertyReplacer', function(){
 
       const spy2 = getSpy1(3);
 
-      propertyReplacer.replace(myObject, "myFunction2", spy2);
+      propertyReplacer.replace(myObject, 'myFunction2', spy2);
 
       propertyReplacer.setup('myTests2');
 
@@ -960,18 +969,26 @@ describe('PropertyReplacer', function(){
 
       propertyReplacer.replace(myObject, PNAME, spy3);
 
-      expect(myObject["myFunction2"]).to.equal(spy2);
+      expect(myObject['myFunction2']).to.equal(spy2);
       expect(myObject[PNAME]).to.equal(spy3);
 
       propertyReplacer.restoreNamespace('myTests2');
+      expect (propertyReplacer.currentNamespace_).to.equal('myTests2');
 
       expect(myObject[PNAME]).to.equal(spy);
-      expect(myObject["myFunction2"]).to.equal(spy2);
+      expect(myObject['myFunction2']).to.equal(spy2);
 
       propertyReplacer.restoreNamespace('myTests');
+      expect (propertyReplacer.currentNamespace_).to.equal('myTests');
 
       expect(myObject[PNAME]).to.equal(spy);
-      expect(myObject["myFunction2"]).to.equal(undefined);
+      expect(myObject['myFunction2']).to.equal(spy2);
+
+      propertyReplacer.restoreNamespace('myTests');
+      expect (propertyReplacer.currentNamespace_).to.equal('myTests');
+
+      expect(myObject[PNAME]).to.equal(spy);
+      expect(myObject['myFunction2']).to.equal(undefined);
 
     });
 
@@ -983,7 +1000,7 @@ describe('PropertyReplacer', function(){
 
       const spy2 = getSpy1(3);
 
-      propertyReplacer.replace(myObject, "myFunction2", spy2);
+      propertyReplacer.replace(myObject, 'myFunction2', spy2);
 
       propertyReplacer.setup('myTests2');
 
@@ -991,13 +1008,13 @@ describe('PropertyReplacer', function(){
 
       propertyReplacer.replace(myObject, PNAME, spy3);
 
-      expect(myObject["myFunction2"]).to.equal(spy2);
+      expect(myObject['myFunction2']).to.equal(spy2);
       expect(myObject[PNAME]).to.equal(spy3);
 
       propertyReplacer.restoreNamespace('');
 
       expect(myObject[PNAME]).to.equal(spy);
-      expect(myObject["myFunction2"]).to.equal(undefined);
+      expect(myObject['myFunction2']).to.equal(undefined);
 
     });
 

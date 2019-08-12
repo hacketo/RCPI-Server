@@ -340,7 +340,7 @@ PropertyReplacer.prototype.restoreObject_ = function(object){
  */
 PropertyReplacer.prototype.restoreNamespace = function(namespace, remove){
 
-  // Flag used to decide if we want to resotre the namespace after the one supplied (original value = namespace supplied)
+  // Flag used to decide if we want to restore the namespace after the one supplied (original value = namespace supplied)
   let restoreAfter = false;
 
   if (namespace === undefined){
@@ -351,44 +351,60 @@ PropertyReplacer.prototype.restoreNamespace = function(namespace, remove){
     remove = namespace;
     namespace = this.currentNamespace_;
   }
-  else if (namespace === '' || namespace !== this.currentNamespace_){
+
+  // If we want to restore the non current namespace, we want to restore the originals of the next one
+  if (namespace !== this.currentNamespace_){
     // If a namespace is supplied we might want to restore it's state
     restoreAfter = true;
   }
 
 
-  let iOf = this.namespacesPath_.indexOf(namespace);
+  let iOfNamespace = this.namespacesPath_.indexOf(namespace);
 
-  if (iOf === -1){
+  if (iOfNamespace === -1){
     throw new Error('can\'t find namespace named: ' + namespace);
   }
 
+  let iOfAfterNamespace = iOfNamespace;
+
+  let shouldDeleteLast = false;
+
   // If we want to restore the namespace after the one supplied
   if (restoreAfter){
-    if (iOf < this.namespacesPath_.length - 1){
-      iOf++;
+
+    // shift
+    if (iOfAfterNamespace < this.namespacesPath_.length - 1){
+      iOfAfterNamespace++;
+      shouldDeleteLast = true;
     }
   }
 
-  // Get tyhe acual namespace to restore the origin values of the propertyStubs
-  const namespaceToRestore = this.namespacesPath_[iOf];
+  for (let i = this.namespacesPath_.length - 1; i >= iOfAfterNamespace; i--){
 
-  const refs = this.namespaces_.get(namespaceToRestore);
-  // Restore all the properties
-  for (let i = refs.length - 1; i >= 0; i--){
-    this.restore__(refs[i]);
-  }
+    // Get the acual namespace to restore the origin values of the propertyStubs
+    const namespaceToRestore = this.namespacesPath_[i];
 
-  // If we want to remove the namespace from the list
-  if (remove){
-    if (this.namespacesPath_.length > 1){
-      this.namespaces_.delete(namespaceToRestore);
-      //FIXME if remove namespace in between we break the chain of the original_ of the namespace+1 property subs
-      this.namespacesPath_.splice(iOf, 1);
+    console.log('rn :' + namespaceToRestore);
+
+    const refs = this.namespaces_.get(namespaceToRestore);
+    // Restore all the properties
+
+    for (let j = refs.length - 1; j >= 0; j--){
+      this.restore__(refs[j]);
+    }
+
+    // If we want to remove the namespace from the list
+    if (i > iOfAfterNamespace || (i === iOfAfterNamespace && restoreAfter)){
+      if (this.namespacesPath_.length > 1){
+        this.namespaces_.delete(namespaceToRestore);
+        //FIXME if remove namespace in between we break the chain of the original_ of the namespace+1 property subs
+        this.namespacesPath_.splice(i, 1);
+      }
     }
   }
+
   //Update current namespace
-  this.currentNamespace_ = this.namespacesPath_[iOf - 1];
+  this.currentNamespace_ = this.namespacesPath_[iOfNamespace];
   return true;
 };
 
