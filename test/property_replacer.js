@@ -330,52 +330,45 @@ PropertyReplacer.prototype.restoreObject_ = function(object){
   return true;
 };
 
+
 /**
  * restore all property stub created in a particular namespace
- * if remove flag is supplied to true, delete the namespace
+ * if reset flag is supplied to true, will reset all the values with the one of the previous namespace
  * if no namespace supplied default to the current namespace in use
- * @param {string|boolean=} namespace=this.currentNamespace_ - if string, namespace to restore, if boolean remove flag
- * @param {boolean=} remove - flag to delete the namespace after restoring all the properties
+ * @param {string=} namespace=this.currentNamespace_ - namespace to restore
+ * @param {boolean=} reset - flag to reset the restored namespace
  * @return {boolean} true if the namespace was restored
  */
-PropertyReplacer.prototype.restoreNamespace = function(namespace, remove){
-
-  // Flag used to decide if we want to restore the namespace after the one supplied (original value = namespace supplied)
-  let restoreAfter = false;
+PropertyReplacer.prototype.restoreNamespace = function(namespace, reset){
 
   if (namespace === undefined){
     namespace = this.currentNamespace_;
+    reset = true;
+  }
+  else if (typeof namespace !== 'string'){
+    //TODO-namespace namespace could be numbers maybe ??
+    throw new Error('PropertyReplacer#restoreNamespace namespace param should be a string');
   }
 
-  else if (typeof namespace === 'boolean'){
-    remove = namespace;
-    namespace = this.currentNamespace_;
+  // Don't need to do anything if you don't want to reset current namespace ...
+  if (!reset && namespace === this.currentNamespace_){
+    return false;
   }
 
-  // If we want to restore the non current namespace, we want to restore the originals of the next one
-  if (namespace !== this.currentNamespace_){
-    // If a namespace is supplied we might want to restore it's state
-    restoreAfter = true;
-  }
-
-
-  let iOfNamespace = this.namespacesPath_.indexOf(namespace);
-
+  const iOfNamespace = this.namespacesPath_.indexOf(namespace);
   if (iOfNamespace === -1){
     throw new Error('can\'t find namespace named: ' + namespace);
   }
 
   let iOfAfterNamespace = iOfNamespace;
 
-  let shouldDeleteLast = false;
-
   // If we want to restore the namespace after the one supplied
-  if (restoreAfter){
-
+  if (!reset){
     // shift
     if (iOfAfterNamespace < this.namespacesPath_.length - 1){
       iOfAfterNamespace++;
-      shouldDeleteLast = true;
+      // Do no remove current namespace
+      reset = true;
     }
   }
 
@@ -384,28 +377,41 @@ PropertyReplacer.prototype.restoreNamespace = function(namespace, remove){
     // Get the acual namespace to restore the origin values of the propertyStubs
     const namespaceToRestore = this.namespacesPath_[i];
 
-    console.log('rn :' + namespaceToRestore);
-
-    const refs = this.namespaces_.get(namespaceToRestore);
     // Restore all the properties
-
+    const refs = this.namespaces_.get(namespaceToRestore);
     for (let j = refs.length - 1; j >= 0; j--){
       this.restore__(refs[j]);
     }
 
-    // If we want to remove the namespace from the list
-    if (i > iOfAfterNamespace || (i === iOfAfterNamespace && restoreAfter)){
+    // Dont remove last item if we're resetting ?
+    if (!(i === iOfAfterNamespace && reset)){
       if (this.namespacesPath_.length > 1){
         this.namespaces_.delete(namespaceToRestore);
-        //FIXME if remove namespace in between we break the chain of the original_ of the namespace+1 property subs
+        //FIXME-maybenot if remove namespace in between we break the chain of the original_ of the namespace+1 property subs
+        //Should be actually popping out values from the end so...
         this.namespacesPath_.splice(i, 1);
       }
     }
   }
 
   //Update current namespace
-  this.currentNamespace_ = this.namespacesPath_[iOfNamespace];
+  this.currentNamespace_ = namespace;
   return true;
+
+};
+
+
+/**
+ * restore all property stub created in the current namespace
+ */
+PropertyReplacer.prototype.resetNamespace = function(){
+  const namespaceToRestore = this.currentNamespace_;
+
+  // Restore all the properties
+  const refs = this.namespaces_.get(namespaceToRestore);
+  for (let j = refs.length - 1; j >= 0; j--){
+    this.restore__(refs[j]);
+  }
 };
 
 /**
@@ -533,7 +539,7 @@ PropertyReplacer.prototype.removeNamespaceRef_ = function(namespace, propertyStu
 
   const list = this.namespaces_.get(namespace);
   // remove if exists
-  let iOf = list.indexOf(propertyStub);
+  const iOf = list.indexOf(propertyStub);
   if (iOf !== -1){
     list.splice(iOf, 1);
     return true;
@@ -549,6 +555,7 @@ PropertyReplacer.prototype.removeNamespaceRef_ = function(namespace, propertyStu
  * @return {boolean} true if namespace ref was added
  */
 PropertyReplacer.prototype.addObjectRef_ = function(object, propertyStub){
+  //FIXME-NOTWORKING we can't save all the propertyStubs in a list like this, the list have to be sync with what we might want to restore for the current state
 
   const objectHash = this.getHash_(object, false);
 
@@ -568,11 +575,16 @@ PropertyReplacer.prototype.addObjectRef_ = function(object, propertyStub){
   return false;
 };
 
+/**
+ * Delete the property of the object that contain the hash
+ * @param {object} object
+ * @private
+ */
 PropertyReplacer.prototype.cleanObject_ = function(object){
   if (object.hasOwnProperty(this.hash_)){
     delete object[this.hash_];
   }
-}
+};
 
 /**
  * Remove a propertyStub reference to the internal objects_ map
@@ -592,7 +604,7 @@ PropertyReplacer.prototype.removeObjectRef_ = function(object, propertyStub){
   const list = this.objects_.get(objectHash);
 
   // remove if exists
-  let iOf = list.indexOf(propertyStub);
+  const iOf = list.indexOf(propertyStub);
   if (iOf !== -1){
     list.splice(iOf, 1);
 
@@ -737,6 +749,8 @@ PropertyStub.prototype.setter_ = function(value){
   }
   if (typeof this.replacers_[ReplaceType.SETTER] === 'function'){
     const r = this.replacers_[ReplaceType.SETTER].apply(this.object_, arguments);
+    // Setter from the PropertyDescriptor should not return any value, but the SETTER could be
+    // hooked to a custom callable that would return a new value
     if (r !== undefined){
       value = r;
     }
@@ -758,25 +772,26 @@ PropertyStub.prototype.setter_ = function(value){
  * @private
  */
 PropertyStub.prototype.getter_ = function(){
-  let value = this.value_;
+  let rValue = this.value_;
   // Should get_before have access to the value ? the real getter will not use any value
   if (typeof this.replacers_[ReplaceType.GETTER_BEFORE] === 'function'){
-    value = this.replacers_[ReplaceType.GETTER_BEFORE].call(this.object_);
+    rValue = this.replacers_[ReplaceType.GETTER_BEFORE].call(this.object_);
   }
   if (typeof this.replacers_[ReplaceType.GETTER] === 'function'){
-    value = this.replacers_[ReplaceType.GETTER].call(this.object_);
+    rValue = this.replacers_[ReplaceType.GETTER].call(this.object_);
   }
   if (typeof this.replacers_[ReplaceType.GETTER_AFTER] === 'function'){
-    value = this.replacers_[ReplaceType.GETTER_AFTER].call(this.object_, value);
+    rValue = this.replacers_[ReplaceType.GETTER_AFTER].call(this.object_, rValue);
   }
   //TODO-tt should GETTER override this.value_ ?
-  return value;
+  return rValue;
 };
 
 /**
  * Set the callack for hook or replace current value
  * @param {ReplaceType} type
  * @param {function()|*} value
+ * @TODO-feature maybe type should be a flag combination, allowing to add the value for multiple replacement type ??
  */
 PropertyStub.prototype.replace = function(type, value){
 
@@ -786,10 +801,10 @@ PropertyStub.prototype.replace = function(type, value){
 
   const obj = this.object_;
 
+  // REPLACE type should clear all replacer and update the current value ?
   if (type === ReplaceType.REPLACE){
-    // Remove all replacers
     this.replacers_ = {};
-
+    // Why was that code there ?
     // if (typeof value === 'function'){
     //   if (!this.fnProxy_ || this.value_ !== this.fnProxy_){
     //     this.value_ = value;
@@ -890,17 +905,18 @@ PropertyStub.prototype.getFnProxy_ = function(obj, value){
  * A restore is supposed be called before the destroy of that model
  */
 PropertyStub.prototype.restore = function(){
-  console.debug('restoring : ' + this.key_ + ' ');
+
   delete this.object_[this.property_];
+
   if (this.origin_){
     Object.defineProperty(this.object_, this.property_, this.origin_);
   }
+
   // Clean references
   this.object_ = null;
   this.property_ = null;
   this.origin_ = null;
   this.value_ = null;
-
 };
 
 module.exports = {

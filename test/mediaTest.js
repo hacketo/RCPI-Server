@@ -30,7 +30,7 @@ before(function(){
 });
 
 after(function(){
-  gPropertyReplacer.restore('media');
+  gPropertyReplacer.resetNamespace();
 });
 
 

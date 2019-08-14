@@ -34,6 +34,7 @@ module.exports = {
         "no-inner-declarations": "off",
         "consistent-return": "off",
         "prefer-template": "off",
+        "prefer-spread": "off",
         // see plugins/chai-friendly docs
         "closure/no-unused-expressions": 0,
         "chai-friendly/no-unused-expressions": 2
