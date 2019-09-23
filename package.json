@@ -28,10 +28,9 @@
     "express": "^4.16.4",
     "forever-monitor": "^1.7.1",
     "get-video-duration": "^0.3.0",
-    "msgpack": "^1.0.2",
+    "msgpack-lite": "^0.1.26",
     "node-omxplayer": "git://github.com/hacketo/node-omxplayer.git#0616e520547aa8c4f4ecda00db7588bdb924f90b",
     "subtitle": "^2.0.3",
-    "throttled-queue": "^1.0.7",
     "youtube-dl": "^2.0.0"
   }
 }

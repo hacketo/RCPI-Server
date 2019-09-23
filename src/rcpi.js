@@ -153,9 +153,7 @@ RCPI.prototype.onDOWNLOAD = function(client, path){
     return;
   }
 
-
-
-  this.download(path, path);
+  this.download(client, path);
 };
 
 
@@ -781,8 +779,6 @@ RCPI.prototype.clean_exit = function(){
   }
 };
 
-const throttledQueue = require('throttled-queue');
-
 RCPI.prototype.download = function(client, url){
   const mediaUrl = url;
   const output = this.downloadDir;
@@ -795,13 +791,10 @@ RCPI.prototype.download = function(client, url){
     util.log(output);
   });
 
-  // max 2 / secs
-  const throttle = throttledQueue(2, 1000);
 
-  download.on('progress', /** @param {ProgressDl} dlObj*/ function(dlObj) {
-    throttle(() =>{
-      this.sendDownloadInfo(client, dlObj);
-    });
+  download.on('progress', /** @param {ProgressDl} dlObj*/ dlObj => {
+    console.log('send progress !!!');
+    this.sendDownloadInfo(client, dlObj);
   });
 };
 

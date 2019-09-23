@@ -6,7 +6,7 @@ const dgram = require('dgram');
 const util = require('./util');
 const KEYS = require('./keys').KEYS;
 const KEY_STR = require('./keys').KEY_STR;
-const msgpack = require('msgpack');
+const msgpack = require('msgpack-lite');
 const Client = require('./client').Client;
 
 /**
@@ -44,7 +44,7 @@ UDPServer.prototype.init = function(rcpi){
   this.server.on('message', (msg, rinfo) => {
     const client = this.clients.handle_client(this, rinfo);
 
-    const m = msgpack.unpack(msg);
+    const m = msgpack.decode(msg);
         // Check msg structure
     if (!m.length || m.length <= 0){ return; }
 
@@ -102,7 +102,7 @@ UDPServer.prototype.send = function(address, action, data){
       if (typeof data !== 'undefined') {
         b.push(data);
       }
-      const p = msgpack.pack(b);
+      const p = msgpack.encode(b);
       util.log('Sending UDP : ', action, JSON.stringify(data), this.port, address);
       this.server.send(p, 0, p.length, this.port, address);
     }

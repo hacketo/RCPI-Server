@@ -1,21 +1,15 @@
 const EventEmitter = require('events').EventEmitter;
 const spawn = require('child_process').spawn;
 
-
 /**
- * @typedef {{
- *  length: number,
- *  name: string,
- *  progress: {
- *    progress:number,
- *    speed: string,
- *    remaining: string,
- *    size: string
- *  }
- * }} ProgressDl
+ * Download a file at the specified location
+ * Possibility to specify a max progress interval, for the progress event
+ * @param {string} url - url of the file to download
+ * @param {string} path - path to download the file to
+ * @param {number=2000} maxIntervalProgress - progress event throttle
+ * @return {module:events.internal.EventEmitter}
  */
-
-function wget(url, path){
+function wget(url, path, maxIntervalProgress = 2000){
 
   const emitter = new EventEmitter();
 
@@ -40,11 +34,10 @@ function wget(url, path){
   const sizeREG = /[MKGB]/;
 
   const parseData = function(str){
-    const progressData = str.replace(/\.+/gm, '').trim().split(/\s+/);
-
-    return progressData;
+    return str.replace(/\.+/gm, '').trim().split(/\s+/);
   };
 
+  const throttle = ThrottleMax(maxIntervalProgress);
 
   const parseLine = function(line){
     switch (state){
@@ -75,13 +68,12 @@ function wget(url, path){
           if (readState === 0){
             if ((val[val.length - 1] || '').match(sizeREG)){
               dlObj.progress.size = val;
-              emitter.emit('progress', dlObj);
               readState += 1;
             }
           }
           else if (readState === 1){
             if (val[val.length - 1] === '%'){
-              dlObj.progress.progress = val.slice(0, -1);
+              dlObj.progress.progress = +val.slice(0, -1);
               readState += 1;
             }
           }
@@ -98,7 +90,11 @@ function wget(url, path){
               //dlObj.progress.remaining = ((+result[2] || 0) /* H */ * 3600 + (+result[4] || 0) * 60 + (+result[6] || 0)) * 1000;
               dlObj.progress.remaining = result[0];
               readState = 0;
-              emitter.emit('progress', dlObj);
+
+              throttle(() => {
+                emitter.emit('progress', dlObj);
+              });
+
             }
           }
         });
@@ -115,6 +111,8 @@ function wget(url, path){
 
     return (data) => {
       const dataStr = data + '';
+
+      //console.error(dataStr);
 
       const lines = [];
       for (let i = 0, len = dataStr.length; i < len; i++){
@@ -145,6 +143,55 @@ function wget(url, path){
 
 }
 
+
+/**
+ * @typedef {{
+ *  length: number,
+ *  name: string,
+ *  progress: {
+ *    progress:number,
+ *    speed: string,
+ *    remaining: string,
+ *    size: string
+ *  }
+ * }} ProgressDl
+ */
+
+
+
+/**
+ * Will throttle a function that will be called at the given interval
+ * useful when you want to reduce the amount of call for a spammed function
+ *
+ * @param {number} minCallInterval - minimum time before the next function call
+ * @return {function(function)} helper to throttle the given function
+ */
+
+function ThrottleMax(minCallInterval){
+
+  let lastEmitTime = 0;
+  let throttleTimeout = null;
+
+  const throttle = function(callback){
+    if (throttleTimeout !== null){
+      clearTimeout(throttleTimeout);
+      throttleTimeout = null;
+    }
+
+    if (lastEmitTime === 0 || new Date - lastEmitTime >= minCallInterval){
+      lastEmitTime = +new Date;
+      callback();
+    }
+    else {
+      throttleTimeout = setTimeout(function(){
+        throttle(callback);
+      }, lastEmitTime + minCallInterval - new Date);
+    }
+  };
+
+  return throttle;
+}
+
 module.exports = {
-  wget: wget
+  wget: wget,
 };
