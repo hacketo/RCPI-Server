@@ -33,7 +33,7 @@ function wget(url, path, maxIntervalProgress = 2000){
   const remainingREG = /(:?([0-9]{0,2})h)?(:?([0-9]{0,2})m)?(:?([0-9]{0,2})s)?/;
   const sizeREG = /[MKGB]/;
 
-  const parseData = function(str){
+  const parseLineData = function(str){
     return str.replace(/\.+/gm, '').trim().split(/\s+/);
   };
 
@@ -58,7 +58,7 @@ function wget(url, path, maxIntervalProgress = 2000){
         emitter.emit('error', line);
         break;
       case 1:{
-        let progressData = parseData(line);
+        let progressData = parseLineData(line);
 
         progressData.forEach(val => {
           if (val.length <= 0){
@@ -106,14 +106,11 @@ function wget(url, path, maxIntervalProgress = 2000){
     }
   };
 
-  wget.stderr.on('data', (() => {
+  const parseData = (function(){
     let buffer = [];
 
     return (data) => {
       const dataStr = data + '';
-
-      //console.error(dataStr);
-
       const lines = [];
       for (let i = 0, len = dataStr.length; i < len; i++){
         if (dataStr[i] === '\n'){
@@ -133,7 +130,10 @@ function wget(url, path, maxIntervalProgress = 2000){
         });
       }
     };
-  })());
+  })();
+
+  wget.stdout.on('data', parseData);
+  wget.stderr.on('data', parseData);
 
   wget.on('close', (code) => {
     emitter.emit('close', code);

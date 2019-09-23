@@ -38,8 +38,8 @@ function RCPI(config){
     use_ws: false,
     udp_port: 9878,
     ws_port: 9877,
-    mediaDirs: ['/media/pi', '/home/pi/Video'],
-    downloadDir: '/home/pi/Video',
+    mediaDirs: ['/media/pi', '/home/pi/Videos'],
+    downloadDir: '/home/pi/Videos',
     tempDir: `${__dirname}/../temp`,
     subMaxChar: 50,
   }, config);
