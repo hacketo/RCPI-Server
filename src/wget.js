@@ -18,7 +18,6 @@ function wget(url, path, maxIntervalProgress = 2000){
   const wget = spawn('wget', ['-P', path, url]);
 
   emitter.on('kill', function(){
-    console.error('KILLLLLLLLLLLLLLL')
     kill(wget.pid);
     emitter.emit('close');
   });

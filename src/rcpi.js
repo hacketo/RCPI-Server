@@ -39,7 +39,7 @@ function RCPI(config){
     udp_port: 9878,
     ws_port: 9877,
     mediaDirs: ['/media/pi', '/home/pi/Videos'],
-    downloadDir: './',
+    downloadDir: '/home/pi/Videos',
     tempDir: `${__dirname}/../temp`,
     subMaxChar: 50,
   }, config);
@@ -813,12 +813,11 @@ RCPI.prototype.download_ = function(client, url){
     });
     this.downloadHandler.on('close', (output) => {
       util.log(output);
-
       this.downloadHandler = null;
     });
 
     this.downloadHandler.on('progress', /** @param {ProgressDl} dlObj*/dlObj => {
-      console.log('progress', dlObj);
+      //console.log('progress', dlObj);
       this.sendDownloadInfo(client, dlObj);
     });
   }
