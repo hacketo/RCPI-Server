@@ -26,6 +26,7 @@ const KEYS = {
   QUIT: 19,
 
   DEBUG: 22,
+  DL: 23,
 };
 
 const KEY_STR = (function(){

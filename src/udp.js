@@ -65,6 +65,9 @@ UDPServer.prototype.init = function(rcpi){
       case KEYS.LIST:
         rcpi.onLIST(client);
         break;
+      case KEYS.DL:
+        rcpi.onDOWNLOAD(client, m[2]);
+        break;
       case KEYS.OPEN:
         rcpi.onOPEN(client, m[2], m[3]);
         break;

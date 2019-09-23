@@ -13,6 +13,8 @@ const Clients = require('./clients').Clients;
 const exec = require('child_process').exec;
 const Subtitle = require('subtitle');
 
+const wget = require('./wget').wget;
+
 let Omx = require('./mock.js');
 
 exec('command -v omxplayer', function(err, stdout) {
@@ -145,6 +147,18 @@ RCPI.prototype.onOPEN = function(client, path, ask_subtitles){
 };
 
 
+RCPI.prototype.onDOWNLOAD = function(client, path){
+  if (!path){
+    util.log('no path specified');
+    return;
+  }
+
+
+
+  this.download(path, path);
+};
+
+
 RCPI.prototype.onDEBUG = function(client, cmd){
   if (!cmd){
     util.log('no cmd specified');
@@ -178,12 +192,12 @@ RCPI.prototype.get_available_media = function(){
   let l = [];
   this.mediaDirs.forEach(function(i){
     try {
-            if (fs.existsSync(i)) {
-              l = l.concat(util.walk(i));
-            }
-        } catch (e){
+      if (fs.existsSync(i)) {
+        l = l.concat(util.walk(i));
+      }
+    } catch (e){
 
-        }
+    }
   });
   if (l.length > 0){
     this.mList = l;
@@ -685,6 +699,28 @@ RCPI.prototype.get_cursor_packet = function(){
   ];
 };
 
+/**
+ *
+ * @param {ProgressDl} dlObj
+ * @returns {*[]}
+ */
+RCPI.prototype.get_dl_packet = function(dlObj){
+  return [
+    dlObj.name, dlObj.length,
+    dlObj.progress.progress, dlObj.progress.speed,
+    dlObj.progress.remaining, dlObj.progress.size,
+  ];
+};
+
+/**
+ *
+ * @param {Client} client
+ * @param {ProgressDl} dlObj
+ */
+RCPI.prototype.sendDownloadInfo = function(client, dlObj){
+  client.send(KEYS.DL, this.get_dl_packet(dlObj));
+  this.clients.update_timeout(this.isMediaPlaying ? (this.currentMediaDuration_ - this.currentMediaCursor_) : 0);
+};
 RCPI.prototype.sendInfos = function(){
   this.broadcast(KEYS.FINFOS, this.get_play_packet());
   this.clients.update_timeout(this.isMediaPlaying ? (this.currentMediaDuration_ - this.currentMediaCursor_) : 0);
@@ -745,19 +781,27 @@ RCPI.prototype.clean_exit = function(){
   }
 };
 
+const throttledQueue = require('throttled-queue');
+
 RCPI.prototype.download = function(client, url){
   const mediaUrl = url;
-  wget({
-    url: url,
-    dest: this.downloadDir, // destination path or path with filenname, default is ./
-    timeout: 2000, // duration to wait for request fulfillment in milliseconds, default is 2 seconds
-  }, function(error, response){
-    if (error){
+  const output = this.downloadDir;
 
-    }
-    else {
+  let download = wget(mediaUrl, output);
+  download.on('error', function(err) {
+    util.error(err);
+  });
+  download.on('close', function(output) {
+    util.log(output);
+  });
 
-    }
+  // max 2 / secs
+  const throttle = throttledQueue(2, 1000);
+
+  download.on('progress', /** @param {ProgressDl} dlObj*/ function(dlObj) {
+    throttle(() =>{
+      this.sendDownloadInfo(client, dlObj);
+    });
   });
 };
 

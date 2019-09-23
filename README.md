@@ -11,6 +11,7 @@ More details later on this little project.
 This project require these programs to be installed on the raspberry pi : 
 * [*ffmpeg/ffprobe*](https://github.com/FFmpeg/FFmpeg) 
 * [*omxplayer*](https://github.com/popcornmix/omxplayer) Available on Raspbian repos (`apt-get install omxplayer`)
+* [*youtube-dl*](https://ytdl-org.github.io/youtube-dl/download.html) python youtube dl library
 
 ## Getting Started
 
@@ -66,6 +67,7 @@ SUBTITLE_DELAY_DEC | 16 | |
 SUBTITLE_DELAY_INC | 17 | |
 INFOS | 18 | |
 QUIT | 19 | |
+DOWNLOAD | 19 | uri | 
 
 
 ---
