@@ -15,8 +15,6 @@ function wget(url, path, maxIntervalProgress = 2000){
 
   const wget = spawn('wget', ['-P', path, url]);
 
-  let state = -1;
-
   const dlObj = {
     length: 0,
     name: '',
@@ -28,75 +26,151 @@ function wget(url, path, maxIntervalProgress = 2000){
     },
   };
 
-  let readState = 0;
+  let readState = -1;
 
   const remainingREG = /(:?([0-9]{0,2})h)?(:?([0-9]{0,2})m)?(:?([0-9]{0,2})s)?/;
   const sizeREG = /[MKGB]/;
 
   const parseLineData = function(str){
-    return str.replace(/\.+/gm, '').trim().split(/\s+/);
+    const S_SIZE = 0, S_DOTS = -1, S_PERCENTS = 1, S_SPEED = 2, S_TIME = 3;
+
+    let state = S_SIZE;
+
+    const line_data = [];
+
+    let buffer = [];
+    for (let i = 0, len = str.length; i < len; i++){
+      switch (state){
+        case S_SIZE:{
+          if (buffer.length > 0 && str[i] === ' '){
+            state = S_DOTS;
+            line_data[S_SIZE] = buffer.join('');
+            buffer.length = 0;
+          }
+          else {
+            if (str[i] !== ' ' && (+str[i] === +str[i] || buffer.length > 0)){
+              buffer.push(str[i]);
+            }
+          }
+          break;
+        }
+        case S_DOTS:{
+          if (str[i] === ' ' || str[i] === '.'){
+            continue;
+          }
+          state = S_PERCENTS;
+          break;
+        }
+        case S_PERCENTS:{
+          if (str[i] === '%'){
+            state = S_SPEED;
+            line_data[S_PERCENTS] = +buffer.join('');
+            buffer.length = 0;
+          }
+          else {
+            if (str[i] !== ' ' && +str[i] === +str[i]){
+              buffer.push(str[i]);
+            }
+          }
+          break;
+        }
+        case S_SPEED:{
+          if (str[i] === ' ' && buffer.length > 0){
+            state = S_TIME;
+            line_data[S_SPEED] = buffer.join('');
+            buffer.length = 0;
+          }
+          else {
+            if (str[i] !== ' '){
+              buffer.push(str[i]);
+            }
+          }
+          break;
+        }
+        case S_TIME:{
+          if ((str[i] === ' ' || i === len - 1) && buffer.length > 0){
+            if (str[i] !== ' '){
+              buffer.push(str[i]);
+            }
+            state = S_TIME + 1;
+            line_data[S_TIME] = buffer.join('');
+            buffer.length = 0;
+            break;
+          }
+          else {
+            if (str[i] !== ' '){
+              buffer.push(str[i]);
+            }
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    }
+    return line_data;
   };
 
   const throttle = ThrottleMax(maxIntervalProgress);
 
   const parseLine = function(line){
-    switch (state){
+    switch (readState){
+
+      // HTTP request sent, awaiting response... 200 OK
+      // HTTP request sent, awaiting response... 404 Not Found
       case -1:
-        if (line.startsWith('Length:')){
-          dlObj.length = +line.slice(8, line.indexOf(' ', 8));
+        if (line.endsWith('200 OK')){
+          readState = 0;
         }
-        else if (line.startsWith('Saving to:')){
-          dlObj.name = line.slice(10, line.indexOf(' ', 10));
-          state = 1;
-        }
-        else if (line.endsWith('404 Not Found') || line.startsWith('failed:')){
-          state = 0;
+        else if (line.endsWith('404 Not Found')){
           emitter.emit('error', line);
         }
         break;
-      case 0:
-        emitter.emit('error', line);
+
+      // Length: 3430147472 (3,2G) [application/force-download]
+      case 0:{
+        let indexOf = line.indexOf(': ');
+        if (indexOf > -1){
+          dlObj.length = +line.slice(indexOf + 2, line.indexOf(' ', indexOf + 2));
+          readState = 1;
+        }
         break;
+      }
+
+      // Saving to: ‘./file.mkv’
       case 1:{
+        line = line.replace(/[‘’«»]/g, '');
+        let indexOf = line.lastIndexOf(' ');
+        if (indexOf > -1){
+          dlObj.name = line.slice(indexOf).trim();
+          readState = 2;
+        }
+        break;
+      }
+
+      //      0K .......... .......... .......... .......... ..........  0%  571K 97m47s
+      case 2:{
         let progressData = parseLineData(line);
 
-        progressData.forEach(val => {
-          if (val.length <= 0){
-            return;
-          }
+        if ((progressData[0] || '').match(sizeREG)){
+          dlObj.progress.size = progressData[0];
+        }
+        if (+progressData[1] === +progressData[1]){
+          dlObj.progress.progress = +progressData[1];
+        }
+        if ((progressData[2] || '').match(sizeREG)){
+          dlObj.progress.speed = progressData[2];
+        }
 
-          if (readState === 0){
-            if ((val[val.length - 1] || '').match(sizeREG)){
-              dlObj.progress.size = val;
-              readState += 1;
-            }
-          }
-          else if (readState === 1){
-            if (val[val.length - 1] === '%'){
-              dlObj.progress.progress = +val.slice(0, -1);
-              readState += 1;
-            }
-          }
-          else if (readState === 2){
-            if ((val[val.length - 1] || '').match(sizeREG)){
-              dlObj.progress.speed = val;
-              readState += 1;
-            }
-          }
-          else if (readState === 3){
-            remainingREG.lastIndex = 0;
-            const result = remainingREG.exec(val);
-            if (result !== null){
-              //dlObj.progress.remaining = ((+result[2] || 0) /* H */ * 3600 + (+result[4] || 0) * 60 + (+result[6] || 0)) * 1000;
-              dlObj.progress.remaining = result[0];
-              readState = 0;
+        remainingREG.lastIndex = 0;
+        const result = remainingREG.exec(progressData[3]);
+        if (result !== null){
+          //dlObj.progress.remaining = ((+result[2] || 0) /* H */ * 3600 + (+result[4] || 0) * 60 + (+result[6] || 0)) * 1000;
+          dlObj.progress.remaining = result[0];
+        }
 
-              throttle(() => {
-                emitter.emit('progress', dlObj);
-              });
-
-            }
-          }
+        throttle(() => {
+          emitter.emit('progress', dlObj);
         });
 
         break;
@@ -108,8 +182,7 @@ function wget(url, path, maxIntervalProgress = 2000){
 
   const parseData = (function(){
     let buffer = [];
-
-    return (data) => {
+    return (data, from) => {
       const dataStr = data + '';
       const lines = [];
       for (let i = 0, len = dataStr.length; i < len; i++){
@@ -125,6 +198,7 @@ function wget(url, path, maxIntervalProgress = 2000){
       if (lines.length > 0){
         lines.forEach(line => {
           if (line.length > 0){
+            console.log(from + '-->' + line);
             parseLine(line);
           }
         });
@@ -132,8 +206,12 @@ function wget(url, path, maxIntervalProgress = 2000){
     };
   })();
 
-  wget.stdout.on('data', parseData);
-  wget.stderr.on('data', parseData);
+  wget.stdout.on('data', (data) => {
+    parseData(data, 'stdout');
+  });
+  wget.stderr.on('data', (data) => {
+    parseData(data, 'stderr');
+  });
 
   wget.on('close', (code) => {
     emitter.emit('close', code);
