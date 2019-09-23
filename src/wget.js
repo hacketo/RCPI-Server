@@ -1,6 +1,8 @@
 const EventEmitter = require('events').EventEmitter;
 const spawn = require('child_process').spawn;
 
+const kill = require('tree-kill');
+
 /**
  * Download a file at the specified location
  * Possibility to specify a max progress interval, for the progress event
@@ -14,6 +16,12 @@ function wget(url, path, maxIntervalProgress = 2000){
   const emitter = new EventEmitter();
 
   const wget = spawn('wget', ['-P', path, url]);
+
+  emitter.on('kill', function(){
+    console.error('KILLLLLLLLLLLLLLL')
+    kill(wget.pid);
+    emitter.emit('close');
+  });
 
   const dlObj = {
     length: 0,

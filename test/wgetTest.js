@@ -9,12 +9,7 @@ const wget = require('../src/wget').wget;
 
 describe('wget', function(){
 
-  //const file_url = 'http://d3vx.fr/index.html';
-
-  const file_url = 'https://42.download.real-debrid.com/d/D3GWROZBZLMWW/Peaky.Blinders.S05E05.The.Shock.1080p.AMZN.WEB-DL.DD%2B5.1.H.264.VOSTFR-NoTag.mkv';
-
-
-
+  const file_url = 'http://d3vx.fr';
 
   /*
   Test ok

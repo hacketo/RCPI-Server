@@ -39,10 +39,12 @@ function RCPI(config){
     udp_port: 9878,
     ws_port: 9877,
     mediaDirs: ['/media/pi', '/home/pi/Videos'],
-    downloadDir: '/home/pi/Videos',
+    downloadDir: './',
     tempDir: `${__dirname}/../temp`,
     subMaxChar: 50,
   }, config);
+
+  this.downloadHandler = null;
 
   this.mediaDirs = config.mediaDirs;
   this.downloadDir = config.downloadDir;
@@ -153,7 +155,7 @@ RCPI.prototype.onDOWNLOAD = function(client, path){
     return;
   }
 
-  this.download(client, path);
+  this.download_(client, path);
 };
 
 
@@ -664,18 +666,34 @@ RCPI.prototype.send_to_omx = function(client, key){
         this.omx_player.incSubDelay();
         break;
       case KEYS.QUIT:
-        this.asked_close = true;
+        if (this.downloadHandler !== null){
+          this.downloadHandler.emit('kill');
+        }
+        else {
+          this.asked_close = true;
 
-        this.histo[0].time = this.currentMediaCursor_;
+          this.histo[0].time = this.currentMediaCursor_;
 
-        this.omx_player.quit();
-        this.isMediaPlaying = false;
+          this.omx_player.quit();
+          this.isMediaPlaying = false;
+        }
         break;
       case KEYS.INFOS:
         this.omx_player.info();
         break;
       default:
         util.log(`key not found ${key}`);
+        break;
+    }
+  }
+  else {
+    switch(key){
+      case KEYS.QUIT:
+        if (this.downloadHandler !== null){
+          this.downloadHandler.emit('kill');
+        }
+        break;
+      default:
         break;
     }
   }
@@ -779,23 +797,31 @@ RCPI.prototype.clean_exit = function(){
   }
 };
 
-RCPI.prototype.download = function(client, url){
+RCPI.prototype.download_ = function(client, url){
   const mediaUrl = url;
   const output = this.downloadDir;
 
-  let download = wget(mediaUrl, output);
-  download.on('error', function(err) {
-    util.error(err);
-  });
-  download.on('close', function(output) {
-    util.log(output);
-  });
+  if (this.downloadHandler !== null){
+    //this.download_queue.push(url);
+  }
 
+  else {
+    this.downloadHandler = wget(mediaUrl, output);
+    this.downloadHandler.on('error', (err) => {
+      util.error(err);
+      this.downloadHandler.emit('close');
+    });
+    this.downloadHandler.on('close', (output) => {
+      util.log(output);
 
-  download.on('progress', /** @param {ProgressDl} dlObj*/ dlObj => {
-    console.log('progress', dlObj);
-    this.sendDownloadInfo(client, dlObj);
-  });
+      this.downloadHandler = null;
+    });
+
+    this.downloadHandler.on('progress', /** @param {ProgressDl} dlObj*/dlObj => {
+      console.log('progress', dlObj);
+      this.sendDownloadInfo(client, dlObj);
+    });
+  }
 };
 
 RCPI.prototype.sub_debug = function(client){
