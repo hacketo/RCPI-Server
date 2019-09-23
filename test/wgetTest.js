@@ -9,7 +9,7 @@ const wget = require('../src/wget').wget;
 
 describe('wget', function(){
 
-  const file_url = 'http://d3vx.fr';
+  const file_url = 'https://42.download.real-debrid.com/d/D3GWROZBZLMWW/Peaky.Blinders.S05E05.The.Shock.1080p.AMZN.WEB-DL.DD%2B5.1.H.264.VOSTFR-NoTag.mkv';
 
   /*
   Test ok
@@ -41,7 +41,7 @@ Sauvegarde en : « ./Peaky.Blinders.S05E05.The.Shock.1080p.AMZN.WEB-DL.DD+5.1.
    200K .......... .......... .......... .......... ..........  0% 5,38M 31m13s
    250K .......... .......... .......... .......... ..........  0% 2,86M 29m11s
    300K .......... .......... .......... .......... ..........  0% 5,35M 26m28s
-   350K .......... .......... .......... .......... ..........  0% 6,00M 24m18s
+   350K .......... .......... .......... .......... ..........  12% 6,00M 24m18s
 
    */
 

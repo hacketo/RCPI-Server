@@ -66,7 +66,6 @@ function wget(url, path, maxIntervalProgress = 2000){
             continue;
           }
           state = S_PERCENTS;
-          break;
         }
         case S_PERCENTS:{
           if (str[i] === '%'){
