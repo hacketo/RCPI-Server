@@ -198,7 +198,7 @@ function wget(url, path, maxIntervalProgress = 2000){
       if (lines.length > 0){
         lines.forEach(line => {
           if (line.length > 0){
-            console.log(from + '-->' + line);
+            //console.log(from + '-->' + line);
             parseLine(line);
           }
         });

@@ -793,7 +793,7 @@ RCPI.prototype.download = function(client, url){
 
 
   download.on('progress', /** @param {ProgressDl} dlObj*/ dlObj => {
-    console.log('send progress !!!');
+    console.log('progress', dlObj);
     this.sendDownloadInfo(client, dlObj);
   });
 };
