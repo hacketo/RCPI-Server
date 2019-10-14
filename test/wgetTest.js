@@ -5,11 +5,12 @@
 const expect = require('chai').expect;
 
 const wget = require('../src/wget').wget;
+const parseLineData = require('../src/wget').parseLineData;
 
 
 describe('wget', function(){
 
-  const file_url = 'https://42.download.real-debrid.com/d/D3GWROZBZLMWW/Peaky.Blinders.S05E05.The.Shock.1080p.AMZN.WEB-DL.DD%2B5.1.H.264.VOSTFR-NoTag.mkv';
+  const file_url = 'https://30.download.real-debrid.com/d/BDWPCAQTZFQJI/Pirates%20Of%20The%20Caribbean%20Dead%20Men%20Tell%20No%20Tales%20%282017%29%20VFF-ENG%20AC3-DTS%20BluRay%201080p%20x264.GHT.mkv';
 
   /*
   Test ok
@@ -70,6 +71,12 @@ Sauvegarde en : « ./Peaky.Blinders.S05E05.The.Shock.1080p.AMZN.WEB-DL.DD+5.1.
         console.log(`close: child process exited with code ${code}`);
       });
     });
+  });
+
+  it('should dl file', function(){
+
+    const data = parseLineData('   350K .......... .......... .......... .......... ..........  12% 6,00M 24m18s');
+    console.log(data);
   });
 
 

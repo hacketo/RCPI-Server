@@ -30,7 +30,6 @@ exec('command -v omxplayer', function(err, stdout) {
  * @name RCPI
  * @class
  * @param {object} config
- * @constructor
  */
 function RCPI(config){
 
