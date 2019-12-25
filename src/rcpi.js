@@ -283,6 +283,7 @@ RCPI.prototype.youtube_playlist_process = function(media, args, spawnID, ask_sub
 
   if (result != null){
     nbEpisode = +result[1] || 0;
+    media = media.slice(result[1].length);
   }
 
   const playlistArgs = args.slice();
