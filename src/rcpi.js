@@ -303,9 +303,9 @@ RCPI.prototype.youtube_playlist_process = function(media, args, spawnID, ask_sub
        * @type Array<PlayListItem>
        */
       this.playlist_ = info;
-      this.playlist_i = nbEpisode;
+      this.playlist_i = nbEpisode - 1;
 
-      media = this.generate_youtube_url(this.playlist_[this.playlist_i]);
+      media = this.next_youtube_playlist_item();
 
       this.youtube_process(media, args, spawnID, ask_subtitles);
     }
@@ -315,6 +315,20 @@ RCPI.prototype.youtube_playlist_process = function(media, args, spawnID, ask_sub
 };
 
 
+RCPI.prototype.next_youtube_playlist_item = function(){
+  while(true){
+    this.playlist_i += 1;
+    if (this.playlist_[this.playlist_i]){
+      if (this.playlist_[this.playlist_i].title !== '[Private video]'){
+        return this.generate_youtube_url(this.playlist_[this.playlist_i].id);
+      }
+    }
+    else{
+      return null;
+    }
+  }
+
+};
 RCPI.prototype.generate_youtube_url = function(id){
   return `https://www.youtube.com/watch?v=${id}`;
 };
@@ -669,10 +683,7 @@ RCPI.prototype.spawnOk_ = function(spawnID, media, duration, displayedUrl, subti
         if (this.playlist_){
 
           if (this.playlist_[this.playlist_i + 1]){
-            this.playlist_i += 1;
-            const playlistItm = this.playlist_[this.playlist_i];
-
-            const media = this.generate_youtube_url(playlistItm.id);
+            const media = this.next_youtube_playlist_item();
             this.youtube_process(media, [], this.spawn_id, this.subtitlesEnabled);
             return;
           }
