@@ -222,6 +222,9 @@ RCPI.prototype.spawn_omxplayer = function(media, ask_subtitles){
   // reset flag
   this.asked_close = false;
 
+  this.playlist_ = null;
+  this.playlist_i = -1;
+
   this.subtitlesEnabled = typeof ask_subtitles === 'undefined' ? true : !!ask_subtitles;
 
   if (media === 'H'){
@@ -239,100 +242,183 @@ RCPI.prototype.spawn_omxplayer = function(media, ask_subtitles){
   else {
     //TODO-tt empty for regular quality
     const args = [];
-    youtubedl.getInfo(media, args, (err, info) => {
 
-      if (err) {
-        util.error(err);
+    // Only download playlist informations
+    if (media.indexOf('playlist?list=') !== -1){
+      this.youtube_playlist_process(media, args, spawnID, ask_subtitles);
+    }
+    else {
+      this.youtube_process(media, args, spawnID, ask_subtitles);
+    }
+  }
+};
+
+/**
+ * @typedef {{
+ *  url: string,
+ *  _type: string,
+ *  ie_key: string,
+ *  id: string,
+ *  title: string,
+ *  _duration_raw: number,
+ *  _durationhms: number,
+ *  duration:number
+ * }} PlayListItem
+ */
+
+/**
+ *
+ * @param {string} media - url of the media file used for the omx instance source
+ * @param {Array<string>} args - list of youtube dl args
+ * @param {number} spawnID
+ * @param {boolean|number|undefined} ask_subtitles
+ */
+RCPI.prototype.youtube_playlist_process = function(media, args, spawnID, ask_subtitles){
+
+  const reg = /^(\d+)http/;
+
+  const result = reg.exec(media);
+
+  let nbEpisode = 0;
+
+  if (result != null){
+    nbEpisode = +result[1] || 0;
+  }
+
+  const playlistArgs = args.slice();
+  playlistArgs.push('-i');
+  playlistArgs.push('--flat-playlist');
+
+  youtubedl.getInfo(media, playlistArgs, (err, info) => {
+    if (err) {
+      util.error(err);
+    }
+
+    if (this.checkSpawnID_(spawnID)) {
+      return;
+    }
+    if (!err){
+      /**
+       * @type Array<PlayListItem>
+       */
+      this.playlist_ = info;
+      this.playlist_i = nbEpisode;
+
+      media = this.generate_youtube_url(this.playlist_[this.playlist_i]);
+
+      this.youtube_process(media, args, spawnID, ask_subtitles);
+    }
+
+  });
+
+};
+
+
+RCPI.prototype.generate_youtube_url = function(id){
+  return `https://www.youtube.com/watch?v=${id}`;
+};
+
+/**
+ *
+ * @param {string} media - url of the media file used for the omx instance source
+ * @param {Array<string>} args - list of youtube dl args
+ * @param {number} spawnID
+ * @param {boolean|number|undefined} ask_subtitles
+ */
+RCPI.prototype.youtube_process = function(media, args, spawnID, ask_subtitles){
+  youtubedl.getInfo(media, args, (err, info) => {
+
+    if (err) {
+      util.error(err);
+    }
+
+          // If another spawn was started, no need to do anything here ...
+    if (this.checkSpawnID_(spawnID)) {
+      return;
+    }
+
+    if (!err) {
+              //util.debug(info);
+
+      const url = info.url;
+
+              // Duration of the media in ms
+      const duration = info._duration_raw;
+
+              // Only handle subtitles for youtube videos
+      if (!this.subtitlesEnabled || info.extractor !== 'youtube') {
+        return this.spawn_(spawnID, url, duration);
       }
 
-            // If another spawn was started, no need to do anything here ...
-      if (this.checkSpawnID_(spawnID)) {
-        return;
+
+              // Check for a possible cached subtitles file
+      if (typeof info._filename === 'string') {
+        const subtitleFile = this.computeSrtFilepath_(info, 'fr');
+
+        if (fs.existsSync(subtitleFile)) {
+          util.debug(`file already exists : using ${ subtitleFile}`);
+          return this.spawn_(spawnID, url, duration, media, subtitleFile);
+        }
       }
 
-      if (!err) {
-                //util.debug(info);
+      util.debug('Try downloading subtitles ');
 
-        const url = info.url;
+      const options = {
+                  // Write automatic subtitle file (youtube only)
+        auto: true,
+                  // Downloads all the available subtitles.
+        all: false,
+                  // Subtitle format. YouTube generated subtitles
+                  // are available ttml or vtt.
+        format: 'srt',
+                  // Languages of subtitles to download, separated by commas.
+        lang: 'fr',
+                  // The directory to save the downloaded files in.
+        cwd: this.tempDir,
+      };
 
-                // Duration of the media in ms
-        const duration = info._duration_raw;
-
-                // Only handle subtitles for youtube videos
-        if (!this.subtitlesEnabled || info.extractor !== 'youtube') {
-          return this.spawn_(spawnID, url, duration);
+      youtubedl.getSubs(media, options, (err, files) => {
+        if (err) {
+          util.error(err);
         }
 
-
-                // Check for a possible cached subtitles file
-        if (typeof info._filename === 'string') {
-          const subtitleFile = this.computeSrtFilepath_(info, 'fr');
-
-          if (fs.existsSync(subtitleFile)) {
-            util.debug(`file already exists : using ${ subtitleFile}`);
-            return this.spawn_(spawnID, url, duration, media, subtitleFile);
-          }
+                  // If not same spawnID we want to delete any files we could have downloaded
+        if (this.checkSpawnID_(spawnID)) {
+          this.deleteFiles_(files);
+          return;
         }
 
-        util.debug('Try downloading subtitles ');
+        if (!err) {
+                      // In case we have at least one subtitle in the 'files' list
+          if (files && typeof files[0] === 'string') {
 
-        const options = {
-                    // Write automatic subtitle file (youtube only)
-          auto: true,
-                    // Downloads all the available subtitles.
-          all: false,
-                    // Subtitle format. YouTube generated subtitles
-                    // are available ttml or vtt.
-          format: 'srt',
-                    // Languages of subtitles to download, separated by commas.
-          lang: 'fr',
-                    // The directory to save the downloaded files in.
-          cwd: this.tempDir,
-        };
+            util.debug('Downloaded sutitles : ', files);
 
-        youtubedl.getSubs(media, options, (err, files) => {
-          if (err) {
-            util.error(err);
-          }
+            const subtitleFile = `${this.tempDir }/${ files[0]}`;
 
-                    // If not same spawnID we want to delete any files we could have downloaded
-          if (this.checkSpawnID_(spawnID)) {
-            this.deleteFiles_(files);
+                          // Start handling the downloaded file (format conversion ..)
+            this.handleSubtitles(subtitleFile, spawnID).then((subtitleFile) => {
+
+              if (this.checkSpawnID_(spawnID)) {
+                return Promise.reject();
+              }
+
+                              // Delete any other downloaded files that we don't need to use for the media
+              this.deleteFiles_(files, [subtitleFile]);
+              this.spawn_(spawnID, url, duration, media, subtitleFile);
+            }).catch(reason => {
+              this.deleteFiles_(files);
+            });
             return;
           }
+        }
 
-          if (!err) {
-                        // In case we have at least one subtitle in the 'files' list
-            if (files && typeof files[0] === 'string') {
+        this.deleteFiles_(files);
+        this.spawn_(spawnID, url, duration, media);
 
-              util.debug('Downloaded sutitles : ', files);
-
-              const subtitleFile = `${this.tempDir }/${ files[0]}`;
-
-                            // Start handling the downloaded file (format conversion ..)
-              this.handleSubtitles(subtitleFile, spawnID).then((subtitleFile) => {
-
-                if (this.checkSpawnID_(spawnID)) {
-                  return Promise.reject();
-                }
-
-                                // Delete any other downloaded files that we don't need to use for the media
-                this.deleteFiles_(files, [subtitleFile]);
-                this.spawn_(spawnID, url, duration, media, subtitleFile);
-              }).catch(reason => {
-                this.deleteFiles_(files);
-              });
-              return;
-            }
-          }
-
-          this.deleteFiles_(files);
-          this.spawn_(spawnID, url, duration, media);
-
-        });
-      }
-    });
-  }
+      });
+    }
+  });
 };
 
 /**
@@ -577,11 +663,29 @@ RCPI.prototype.spawnOk_ = function(spawnID, media, duration, displayedUrl, subti
       this.isMediaPlaying = false;
 
       if (!this.asked_close){
-        const i = this.mList.indexOf(this.mediaPath);
-        if (i > -1 && this.mList[i + 1]){
-          if (getFilmName(this.mList[i + 1]).startsWith(getFilmName(this.mediaPath).substr(0, 8))){
-            this.spawn_omxplayer(this.mList[i + 1], this.subtitlesEnabled);
+
+        // Here we suppose we have a youtube playlist, so we need to call youtube_process directly
+        if (this.playlist_){
+
+          if (this.playlist_[this.playlist_i + 1]){
+            this.playlist_i += 1;
+            const playlistItm = this.playlist_[this.playlist_i];
+
+            const media = this.generate_youtube_url(playlistItm.id);
+            this.youtube_process(media, [], this.spawn_id, this.subtitlesEnabled);
             return;
+          }
+          else{
+            this.playlist_ = null;
+          }
+        }
+        else {
+          const i = this.mList.indexOf(this.mediaPath);
+          if (i > -1 && this.mList[i + 1]){
+            if (getFilmName(this.mList[i + 1]).startsWith(getFilmName(this.mediaPath).substr(0, 8))){
+              this.spawn_omxplayer(this.mList[i + 1], this.subtitlesEnabled);
+              return;
+            }
           }
         }
       }
