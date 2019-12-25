@@ -307,6 +307,7 @@ RCPI.prototype.youtube_playlist_process = function(media, args, spawnID, ask_sub
 
       media = this.next_youtube_playlist_item();
 
+      util.log('Opening next playlist item', this.playlist_[this.playlist_i].title);
       this.youtube_process(media, args, spawnID, ask_subtitles);
     }
 
@@ -684,6 +685,7 @@ RCPI.prototype.spawnOk_ = function(spawnID, media, duration, displayedUrl, subti
 
           if (this.playlist_[this.playlist_i + 1]){
             const media = this.next_youtube_playlist_item();
+
             this.youtube_process(media, [], this.spawn_id, this.subtitlesEnabled);
             return;
           }
@@ -788,7 +790,8 @@ RCPI.prototype.send_to_omx = function(client, key){
           this.asked_close = true;
 
           this.histo[0].time = this.currentMediaCursor_;
-
+          this.playlist_ = null;
+          this.playlist_i = -1;
           this.omx_player.quit();
           this.isMediaPlaying = false;
         }
