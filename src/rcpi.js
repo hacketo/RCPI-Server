@@ -373,7 +373,7 @@ RCPI.prototype.youtube_process = function(media, args, spawnID, ask_subtitles){
 
         if (fs.existsSync(subtitleFile)) {
           util.debug(`file already exists : using ${ subtitleFile}`);
-          return this.spawn_(spawnID, url, duration, media, subtitleFile);
+          return this.spawn_(spawnID, url, duration, info.fulltitle, subtitleFile);
         }
       }
 
@@ -421,7 +421,7 @@ RCPI.prototype.youtube_process = function(media, args, spawnID, ask_subtitles){
 
                               // Delete any other downloaded files that we don't need to use for the media
               this.deleteFiles_(files, [subtitleFile]);
-              this.spawn_(spawnID, url, duration, media, subtitleFile);
+              this.spawn_(spawnID, url, duration, info.fulltitle, subtitleFile);
             }).catch(reason => {
               this.deleteFiles_(files);
             });
@@ -634,7 +634,7 @@ RCPI.prototype.spawnOk_ = function(spawnID, media, duration, displayedUrl, subti
 
   displayedUrl = displayedUrl || media;
 
-  util.log(`lancement ${displayedUrl} durée ${duration}`);
+  util.log(`lancement ${displayedUrl} durée ${duration}, url: ${media}`);
 
   this.currentMediaDuration_ = Math.round(duration * 1000);
 
