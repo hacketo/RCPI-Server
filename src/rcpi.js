@@ -267,7 +267,7 @@ RCPI.prototype.spawn_omxplayer = function(media, ask_subtitles){
  */
 
 /**
- *
+ * Open a new youtube playlist, media can contain the number of the episode to play ex : 50https://www.youtube.com..
  * @param {string} media - url of the media file used for the omx instance source
  * @param {Array<string>} args - list of youtube dl args
  * @param {number} spawnID
@@ -279,10 +279,10 @@ RCPI.prototype.youtube_playlist_process = function(media, args, spawnID, ask_sub
 
   const result = reg.exec(media);
 
-  let nbEpisode = 0;
+  let nbEpisode = 1;
 
   if (result != null){
-    nbEpisode = +result[1] || 0;
+    nbEpisode = +result[1] || 1;
     media = media.slice(result[1].length);
   }
 
@@ -303,7 +303,7 @@ RCPI.prototype.youtube_playlist_process = function(media, args, spawnID, ask_sub
        * @type Array<PlayListItem>
        */
       this.playlist_ = info;
-      this.playlist_i = nbEpisode - 1;
+      this.playlist_i = (nbEpisode - 1) - 1;
 
       media = this.next_youtube_playlist_item();
 
