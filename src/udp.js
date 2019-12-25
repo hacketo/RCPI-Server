@@ -45,11 +45,15 @@ UDPServer.prototype.init = function(rcpi){
     const client = this.clients.handle_client(this, rinfo);
 
     const m = msgpack.decode(msg);
-        // Check msg structure
-    if (!m.length || m.length <= 0){ return; }
+    // Check msg structure
+    if (!m.length || m.length <= 0){
+      return;
+    }
 
-        // Message starts with 4
-    if (m[0] != 4){ return; }
+    // Message starts with 4
+    if (m[0] != 4){
+      return;
+    }
 
     const key = m[1];
 
@@ -78,7 +82,7 @@ UDPServer.prototype.init = function(rcpi){
         if (+key === +key) {
           rcpi.send_to_omx(client, +key);
         }
-    }
+      }
   });
 
   this.server.on('listening', () => {
@@ -150,7 +154,7 @@ UDPClient.prototype.send = function(action, data){
 
 /**
  * @override
- * @returns {string}
+ * @return {string}
  */
 UDPClient.prototype.get_id = function(){
   return this.id;

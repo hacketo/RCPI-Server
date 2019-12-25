@@ -10,12 +10,8 @@
   },
   "devDependencies": {
     "ansi-color": "latest",
-    "chai": "^4.1.2",
-    "chai-spies": "^1.0.0",
     "daemon": "^1.1.0",
-    "eslint": "^6.1.0",
-    "eslint-config-closure-es6": "^0.1.1",
-    "mocha": "^5.2.0",
+    "dx-base": "git://d3vx.lan/dx-base.git",
     "ws": "git://github.com/hacketo/ws.git#ba3c1267e6cddf1a580e7b42bc1643da6f5c418a"
   },
   "author": {

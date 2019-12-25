@@ -592,8 +592,8 @@ RCPI.prototype.spawnOk_ = function(spawnID, media, duration, displayedUrl, subti
     this.omx_player.newSource(media, 'hdmi', false, this.volume, false, custom_omx_args);
   }
 
-    // New media should be spawning now, so we might want to update the timeout duration for the connected clients
-    // It should be duration of the media + 5 min or 10 min ?
+  // New media should be spawning now, so we might want to update the timeout duration for the connected clients
+  // It should be duration of the media + 5 min or 10 min ?
   this.clients.update_timeout(this.currentMediaDuration_);
 
   this.mediaPath = displayedUrl;
@@ -686,7 +686,7 @@ RCPI.prototype.send_to_omx = function(client, key){
     }
   }
   else {
-    switch(key){
+    switch (key){
       case KEYS.QUIT:
         if (this.downloadHandler !== null){
           this.downloadHandler.emit('kill');

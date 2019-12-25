@@ -7,6 +7,7 @@ const expect = require('chai').expect;
 const wget = require('../src/wget').wget;
 const parseLineData = require('../src/wget').parseLineData;
 
+const MOCK_RPI = require('./wgetMocks').RPI;
 
 describe('wget', function(){
 

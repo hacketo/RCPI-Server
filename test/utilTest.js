@@ -6,6 +6,7 @@ const expect = require('chai').expect;
 
 const subtitleMaxLineLength = require('../src/util').subtitleMaxLineLength;
 
+const {propertyReplacer: {PropertyReplacer}} = require('dx-base');
 
 describe('subtitleMaxLineLength', function(){
 

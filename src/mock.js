@@ -82,29 +82,29 @@ function Omx(source, output, loop, initialVolume, showOsd, customArgs){
 
   };
 
-  omxplayer.play = function(){ writeStdin('p'); };
-  omxplayer.pause = function(){ writeStdin('p'); };
-  omxplayer.volUp = function(){ writeStdin('+'); };
-  omxplayer.volDown = function(){ writeStdin('-'); };
-  omxplayer.fastFwd = function(){ writeStdin('>'); };
-  omxplayer.rewind = function(){ writeStdin('<'); };
-  omxplayer.fwd30 = function(){ writeStdin('\u001b[C'); };
-  omxplayer.back30 = function(){ writeStdin('\u001b[D'); };
-  omxplayer.fwd600 = function(){ writeStdin('\u001b[A'); };
-  omxplayer.back600 = function(){ writeStdin('\u001b[B'); };
-  omxplayer.quit = function(){ writeStdin('q'); };
-  omxplayer.subtitles = function(){ writeStdin('s'); };
-  omxplayer.info = function(){ writeStdin('z'); };
-  omxplayer.incSpeed = function(){ writeStdin('1'); };
-  omxplayer.decSpeed = function(){ writeStdin('2'); };
-  omxplayer.prevChapter = function(){ writeStdin('i'); };
-  omxplayer.nextChapter = function(){ writeStdin('o'); };
-  omxplayer.prevAudio = function(){ writeStdin('j'); };
-  omxplayer.nextAudio = function(){ writeStdin('k'); };
-  omxplayer.prevSubtitle = function(){ writeStdin('n'); };
-  omxplayer.nextSubtitle = function(){ writeStdin('m'); };
-  omxplayer.decSubDelay = function(){ writeStdin('d'); };
-  omxplayer.incSubDelay = function(){ writeStdin('f'); };
+  omxplayer.play = writeStdin.bind(undefined, 'p');
+  omxplayer.pause = writeStdin.bind(undefined, 'p');
+  omxplayer.volUp = writeStdin.bind(undefined, '+');
+  omxplayer.volDown = writeStdin.bind(undefined, '-');
+  omxplayer.fastFwd = writeStdin.bind(undefined, '>');
+  omxplayer.rewind = writeStdin.bind(undefined, '<');
+  omxplayer.fwd30 = writeStdin.bind(undefined, '\u001b[C');
+  omxplayer.back30 = writeStdin.bind(undefined, '\u001b[D');
+  omxplayer.fwd600 = writeStdin.bind(undefined, '\u001b[A');
+  omxplayer.back600 = writeStdin.bind(undefined, '\u001b[B');
+  omxplayer.quit = writeStdin.bind(undefined, 'q');
+  omxplayer.subtitles = writeStdin.bind(undefined, 's');
+  omxplayer.info = writeStdin.bind(undefined, 'z');
+  omxplayer.incSpeed = writeStdin.bind(undefined, '1');
+  omxplayer.decSpeed = writeStdin.bind(undefined, '2');
+  omxplayer.prevChapter = writeStdin.bind(undefined, 'i');
+  omxplayer.nextChapter = writeStdin.bind(undefined, 'o');
+  omxplayer.prevAudio = writeStdin.bind(undefined, 'j');
+  omxplayer.nextAudio = writeStdin.bind(undefined, 'k');
+  omxplayer.prevSubtitle = writeStdin.bind(undefined, 'n');
+  omxplayer.nextSubtitle = writeStdin.bind(undefined, 'm');
+  omxplayer.decSubDelay = writeStdin.bind(undefined, 'd');
+  omxplayer.incSubDelay = writeStdin.bind(undefined, 'f');
 
   Object.defineProperty(omxplayer, 'running', {
     get(){ return open; },

@@ -10,10 +10,10 @@ const util = require('./util');
  */
 function Clients(){
 
-    /**
-     *
-     * @type {Map<string, Client>}
-     */
+  /**
+   *
+   * @type {Map<string, Client>}
+   */
   this.list = new Map();
 
   this.default_timeout_duration = util.sec(300); // 5 mins
@@ -21,7 +21,7 @@ function Clients(){
 }
 
 /**
- * @param {Type} cClass
+ * @param {Server} server
  * @param {WebSocket|Object} rinfo
  */
 Clients.prototype.handle_client = function(server, rinfo){
@@ -103,8 +103,8 @@ Clients.prototype.update_timeout = function(timeout){
  * @deprecated
  */
 Clients.prototype.update_client_timeout = function(client){
-    // Client has to be in the list to continue, makes no sense
-  if (this.list.indexOf(client) == -1 || client.closed){
+  // Client has to be in the list to continue, makes no sense
+  if (this.list.indexOf(client) === -1 || client.closed){
     return;
   }
 
