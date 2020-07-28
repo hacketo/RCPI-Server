@@ -5,8 +5,8 @@
 const exec = require('child_process').exec;
 
 
-const PLAYERS = ['omxplayer', 'mpv'];
-const PLAYER_PACKAGE = ['node-omxplayer', './mpv.js'];
+const PLAYERS = ['mpv', 'omxplayer'];
+const PLAYER_PACKAGE = ['./mpv.js', 'node-omxplayer'];
 
 
 const checkPlayerAvailability = function(playerCmd){

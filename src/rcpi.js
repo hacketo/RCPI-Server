@@ -722,7 +722,7 @@ RCPI.prototype.send_to_omx = function(client, key){
     switch (key){
       case KEYS.PLAY:
         this.playPauseCursor();
-        this.omx_player.play();
+        this.omx_player.play(this.isMediaPlaying);
         this.sendInfos(client);
         break;
       case KEYS.PLAYBACK_BACKWARD600:
