@@ -15,16 +15,7 @@ const Subtitle = require('subtitle');
 
 const wget = require('./wget').wget;
 
-let Omx = require('./mock.js');
-
-exec('command -v omxplayer', function(err, stdout) {
-  if (err || stdout.length === 0) {
-    util.log('/!\\ MOCK : OMX NOT INSTALLED /!\\');
-  }
-  else {
-    Omx = require('node-omxplayer');
-  }
-});
+const PlayerFactory = require('./players/player_factory');
 
 /**
  * @name RCPI
@@ -51,6 +42,8 @@ function RCPI(config){
   this.subtitlesMaxChar = config.subMaxChar;
 
   this.subtitlesEnabled = false;
+
+  this.playerClass = null;
     /**
      *
      * @type {EventEmitter}
@@ -126,6 +119,10 @@ RCPI.prototype.init = function(){
   }
 
   this.get_available_media();
+
+  PlayerFactory.getPlayer().then(player => {
+    this.playerClass = player;
+  });
 };
 
 RCPI.prototype.onPING = function(client){
@@ -662,7 +659,7 @@ RCPI.prototype.spawnOk_ = function(spawnID, media, duration, displayedUrl, subti
 
     // If omx was never initialized create new instance and setup listeners
   if (this.omx_player == null){
-    this.omx_player = Omx(media, 'hdmi', false, this.volume, false, custom_omx_args);
+    this.omx_player = this.playerClass(media, 'hdmi', false, this.volume, false, custom_omx_args);
 
     this.omx_player.on('error', msg => {
       util.error('error', msg);
